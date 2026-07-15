@@ -1,0 +1,8 @@
+brew "fastfetch"
+brew "git"
+brew "mise"
+brew "starship"
+brew "stow"
+
+cask "ghostty"
+cask "tailscale-app"

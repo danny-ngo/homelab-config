@@ -43,4 +43,9 @@ any supported operator machine.
 Node, Go, and Rust are managed exclusively by Ansible through each user’s
 global `mise` configuration (`~/.config/mise/config.toml`).
 
+Package changes are reviewed in `ansible/packages/`: macOS workstations use the
+tracked `macos/Brewfile`, while the Linux manifest is applied only to the
+ThinkPad infrastructure host and ThinkCentre execution node. Raspberry Pi
+packages remain owned by their purpose-specific roles.
+
 Use `make check PLAYBOOK=... LIMIT=host` before `make apply`. Password SSH remains enabled until both recovery flags are explicitly true. Router/DHCP changes, experimental Pi 2 admission, destructive storage, and K3s reboot testing are intentionally opt-in. Docker group membership is root-equivalent. See [DNS runbook](docs/runbooks/dns.md) and [K3s recovery](docs/runbooks/k3s-recovery.md).

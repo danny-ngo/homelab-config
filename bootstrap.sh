@@ -2,8 +2,12 @@
 set -euo pipefail
 
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# shellcheck source=bootstrap/lib/common.sh
-source "$root/bootstrap/lib/common.sh"
+# shellcheck source=bootstrap/lib/logging.sh
+source "$root/bootstrap/lib/logging.sh"
+# shellcheck source=bootstrap/lib/detect-platform.sh
+source "$root/bootstrap/lib/detect-platform.sh"
+# shellcheck source=bootstrap/lib/requirements.sh
+source "$root/bootstrap/lib/requirements.sh"
 
 profile=""
 platform=""

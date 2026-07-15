@@ -1,6 +1,6 @@
 - name: Install execution-node packages
   ansible.builtin.package:
-    name: [git, zsh, python, uv, mise, docker, docker-compose, docker-buildx-plugin, bubblewrap, stow]
+    name: "{{ execution_node_packages }}"
     state: present
 - name: Configure bounded Docker logs and live restore
   ansible.builtin.template:

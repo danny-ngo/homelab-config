@@ -1,5 +1,3 @@
-workstation_homebrew_formulae: [git, stow, fastfetch, starship, mise]
-workstation_homebrew_casks: [tailscale-app, ghostty]
 workstation_user: "{{ ansible_user }}"
 mise_node_version: '24'
 mise_go_version: '1.24'

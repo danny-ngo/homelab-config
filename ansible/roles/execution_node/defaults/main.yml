@@ -1,5 +1,6 @@
 codex_version: 0.144.4
 execution_node_user: "{{ ansible_user }}"
+execution_node_packages: []
 mise_node_version: '24'
 mise_go_version: '1.24'
 mise_rust_version: stable

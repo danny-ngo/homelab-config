@@ -1,0 +1,20 @@
+common_packages:
+  - ca-certificates
+  - curl
+  - git
+
+infra_host_packages:
+  - openssh-client
+  - python3
+  - rsync
+
+execution_node_packages:
+  - bubblewrap
+  - docker
+  - docker-buildx-plugin
+  - docker-compose
+  - mise
+  - python
+  - stow
+  - uv
+  - zsh

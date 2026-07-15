@@ -3,6 +3,7 @@ argument_specs:
     options:
       codex_version: {type: str}
       execution_node_user: {type: str}
+      execution_node_packages: {type: list, elements: str}
       mise_node_version: {type: str}
       mise_go_version: {type: str}
       mise_rust_version: {type: str}

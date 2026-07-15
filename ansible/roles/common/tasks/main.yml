@@ -12,7 +12,9 @@
   ansible.builtin.package:
     name: "{{ common_packages }}"
     state: present
-  when: common_packages | length > 0
+  when:
+    - common_packages | length > 0
+    - inventory_hostname in groups.get('non_raspberry_pi_linux', [])
 - name: Install administrator SSH keys
   ansible.builtin.authorized_key:
     user: "{{ ansible_user }}"

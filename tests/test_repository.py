@@ -42,6 +42,33 @@ class RepositoryContractTests(unittest.TestCase):
                 with self.subTest(role=defaults_path.parts[-3], architecture=architecture):
                     self.assertRegex(checksum, re.compile(r"^[0-9a-f]{64}$"))
 
+    def test_platform_package_manifests_are_consumed_by_ansible(self):
+        brewfile = ROOT / "ansible" / "packages" / "macos" / "Brewfile"
+        linux_manifest = ROOT / "ansible" / "packages" / "linux" / "packages.yml"
+        workstation_tasks = (
+            ROOT / "ansible" / "roles" / "workstation" / "tasks" / "main.yml"
+        ).read_text()
+
+        self.assertIn("brew \"mise\"", brewfile.read_text())
+        self.assertIn("packages/macos/Brewfile", workstation_tasks)
+
+        packages = yaml.safe_load(linux_manifest.read_text())
+        self.assertIn("common_packages", packages)
+        self.assertIn("infra_host_packages", packages)
+        self.assertIn("execution_node_packages", packages)
+
+    def test_raspberry_pis_are_excluded_from_linux_package_manifest_group(self):
+        groups = self.inventory["all"]["children"]
+        manifest_children = set(groups["non_raspberry_pi_linux"]["children"])
+        self.assertEqual(manifest_children, {"infra_hosts", "execution_nodes"})
+
+    def test_bootstrap_uses_focused_library_modules(self):
+        bootstrap = (ROOT / "bootstrap.sh").read_text()
+        for module in ("detect-platform.sh", "logging.sh", "requirements.sh"):
+            self.assertIn(f"bootstrap/lib/{module}", bootstrap)
+            self.assertTrue((ROOT / "bootstrap" / "lib" / module).is_file())
+        self.assertFalse((ROOT / "bootstrap" / "lib" / "common.sh").exists())
+
 
 if __name__ == "__main__":
     unittest.main()
