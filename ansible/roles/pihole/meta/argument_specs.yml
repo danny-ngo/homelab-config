@@ -1,0 +1,6 @@
+argument_specs:
+  main:
+    options:
+      pihole_interface: {type: str, required: true}
+      pihole_upstream_resolvers: {type: list, elements: str, required: true}
+      vault_pihole_web_password_hashes: {type: dict, required: true}

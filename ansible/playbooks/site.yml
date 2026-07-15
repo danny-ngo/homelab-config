@@ -1,0 +1,12 @@
+- name: Apply the Linux baseline
+  import_playbook: base.yml
+- name: Configure the infrastructure host
+  import_playbook: infra-host.yml
+- name: Configure workstations
+  import_playbook: workstations.yml
+- name: Configure the execution node
+  import_playbook: execution-node.yml
+- name: Configure resilient DNS
+  import_playbook: dns.yml
+- name: Configure the K3s cluster
+  import_playbook: k3s.yml

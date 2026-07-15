@@ -1,0 +1,23 @@
+- name: Install workstation Homebrew formulae
+  community.general.homebrew: {name: "{{ workstation_homebrew_formulae }}", state: present}
+- name: Install workstation Homebrew casks
+  community.general.homebrew_cask: {name: "{{ workstation_homebrew_casks }}", state: present}
+- name: Create the workstation mise configuration directory
+  ansible.builtin.file:
+    path: "/Users/{{ workstation_user }}/.config/mise"
+    state: directory
+    owner: "{{ workstation_user }}"
+    mode: '0755'
+- name: Render the workstation mise configuration
+  ansible.builtin.template:
+    src: mise-config.toml.j2
+    dest: "/Users/{{ workstation_user }}/.config/mise/config.toml"
+    owner: "{{ workstation_user }}"
+    mode: '0644'
+- name: Install workstation mise-managed tool versions
+  ansible.builtin.command: mise install
+  become_user: "{{ workstation_user }}"
+  become: true
+  environment:
+    HOME: "/Users/{{ workstation_user }}"
+  changed_when: false

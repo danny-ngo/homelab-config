@@ -1,0 +1,68 @@
+- name: Validate the Linux baseline
+  hosts: linux_nodes
+  gather_facts: true
+  tasks:
+    - name: Run baseline role validation
+      ansible.builtin.include_role:
+        name: "{{ item }}"
+        tasks_from: validate
+      loop: [common, storage, firewall]
+
+- name: Validate workstations
+  hosts: workstations
+  gather_facts: true
+  tasks:
+    - name: Run workstation role validation
+      ansible.builtin.include_role:
+        name: "{{ item }}"
+        tasks_from: validate
+      loop: [workstation, tailscale, dotfiles]
+
+- name: Validate infrastructure hosts
+  hosts: infra_hosts
+  gather_facts: true
+  tasks:
+    - name: Run infrastructure role validation
+      ansible.builtin.include_role:
+        name: "{{ item }}"
+        tasks_from: validate
+      loop: [infra_host, tailscale, dotfiles]
+
+- name: Validate execution nodes
+  hosts: execution_nodes
+  gather_facts: true
+  tasks:
+    - name: Run execution-node role validation
+      ansible.builtin.include_role:
+        name: "{{ item }}"
+        tasks_from: validate
+      loop: [execution_node, tailscale, dotfiles]
+
+- name: Validate Pi-hole nodes
+  hosts: pihole_nodes
+  gather_facts: true
+  tasks:
+    - name: Run Pi-hole role validation
+      ansible.builtin.include_role:
+        name: pihole
+        tasks_from: validate
+
+- name: Validate K3s servers
+  hosts: k3s_servers
+  gather_facts: true
+  tasks:
+    - name: Run K3s server role validation
+      ansible.builtin.include_role:
+        name: "{{ item }}"
+        tasks_from: validate
+      loop: [k3s_prereqs, k3s_server]
+
+- name: Validate supported K3s workers
+  hosts: k3s_workers_supported
+  gather_facts: true
+  tasks:
+    - name: Run K3s worker role validation
+      ansible.builtin.include_role:
+        name: "{{ item }}"
+        tasks_from: validate
+      loop: [k3s_prereqs, k3s_agent]

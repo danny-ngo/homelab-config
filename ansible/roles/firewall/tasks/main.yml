@@ -1,0 +1,17 @@
+- name: Install UFW on Debian-family hosts
+  ansible.builtin.package: {name: ufw, state: present}
+  when: ansible_os_family == 'Debian'
+- name: Permit SSH from management networks with UFW
+  community.general.ufw:
+    rule: allow
+    port: '22'
+    proto: tcp
+    from_ip: "{{ item }}"
+  loop: "{{ management_networks }}"
+  when: ansible_os_family == 'Debian' and firewall_enabled | bool
+- name: Install firewalld on Arch-family hosts
+  ansible.builtin.package: {name: firewalld, state: present}
+  when: ansible_os_family == 'Archlinux'
+- name: Enable firewalld on Arch-family hosts
+  ansible.builtin.service: {name: firewalld, enabled: true, state: started}
+  when: ansible_os_family == 'Archlinux' and firewall_enabled | bool

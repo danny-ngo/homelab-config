@@ -1,0 +1,12 @@
+k3s_server_url: "https://{{ hostvars[groups['k3s_servers'][0]].k3s_node_address }}:6443"
+k3s_version: v1.35.6+k3s1
+k3s_node_labels: []
+k3s_node_taints: []
+k3s_binary_assets:
+  x86_64: k3s
+  aarch64: k3s-arm64
+  armv7l: k3s-armhf
+k3s_binary_checksums:
+  x86_64: 2b52a2c1ca6eb502e2a0ffa1a4cf79eef94875926577c1e43347ed292cc92432
+  aarch64: 64c71644eb83d48f54da43c86ee8ba0ddff69db87e11d96a48fec7a965b1bc80
+  armv7l: 1400d9a5fdd42509f4078e12cf34a4b4f5137942954c97572b05c83d313e59c2

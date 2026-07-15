@@ -1,0 +1,8 @@
+- name: Disable password SSH only after recovery access is confirmed
+  ansible.builtin.lineinfile:
+    path: /etc/ssh/sshd_config.d/99-homelab.conf
+    create: true
+    mode: '0644'
+    line: 'PasswordAuthentication no'
+  notify: Restart ssh
+  when: ssh_recovery_access_confirmed | bool and ssh_hardening_enabled | bool

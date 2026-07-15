@@ -1,0 +1,5 @@
+- name: Inspect the Pi-hole configuration
+  ansible.builtin.stat: {path: /etc/pihole/pihole.toml}
+  register: pihole_config
+- name: Verify the Pi-hole configuration exists
+  ansible.builtin.assert: {that: [pihole_config.stat.exists], quiet: true}

@@ -1,0 +1,6 @@
+argument_specs:
+  main:
+    options:
+      k3s_cluster_cidr: {type: str, required: true}
+      k3s_service_cidr: {type: str, required: true}
+      k3s_node_address: {type: str, required: true}

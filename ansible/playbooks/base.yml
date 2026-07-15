@@ -1,0 +1,4 @@
+- name: Baseline Linux hosts
+  hosts: linux_nodes
+  gather_facts: true
+  roles: [common, storage, firewall]

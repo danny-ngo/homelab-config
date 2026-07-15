@@ -1,0 +1,4 @@
+- name: Verify host facts match inventory
+  ansible.builtin.assert:
+    that: [ansible_os_family == expected_os_family, ansible_architecture == expected_architecture]
+    quiet: true

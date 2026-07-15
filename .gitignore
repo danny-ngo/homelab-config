@@ -1,0 +1,11 @@
+.venv/
+.ansible/
+ansible/inventories/production/
+!ansible/inventories/example/
+*.retry
+*.vault-pass
+artifacts/
+kubeconfig*
+__pycache__/
+.pytest_cache/
+.DS_Store

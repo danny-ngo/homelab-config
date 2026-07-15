@@ -1,0 +1,2 @@
+infra_host_root: /srv/infra
+infra_host_packages: [python3, git, rsync, openssh-client]

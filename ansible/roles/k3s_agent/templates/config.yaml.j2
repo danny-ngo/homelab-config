@@ -1,0 +1,10 @@
+server: {{ k3s_server_url }}
+node-ip: {{ k3s_node_address }}
+node-name: {{ inventory_hostname }}
+token: {{ hostvars[groups['k3s_servers'][0]].k3s_runtime_node_token | to_json }}
+{% if k3s_node_labels | length > 0 %}
+node-label: {{ k3s_node_labels | to_json }}
+{% endif %}
+{% if k3s_node_taints | length > 0 %}
+node-taint: {{ k3s_node_taints | to_json }}
+{% endif %}

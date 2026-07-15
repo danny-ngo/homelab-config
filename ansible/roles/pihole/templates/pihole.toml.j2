@@ -1,0 +1,5 @@
+[dns]
+upstreams = [{% for resolver in pihole_upstream_resolvers %}"{{ resolver }}"{% if not loop.last %}, {% endif %}{% endfor %}]
+interface = "{{ pihole_interface }}"
+[webserver]
+password = "{{ vault_pihole_web_password_hashes[inventory_hostname] }}"

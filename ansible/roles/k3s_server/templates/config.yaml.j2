@@ -1,0 +1,8 @@
+node-ip: {{ k3s_node_address }}
+advertise-address: {{ k3s_node_address }}
+tls-san: ["{{ k3s_node_address }}"]
+cluster-cidr: {{ k3s_cluster_cidr }}
+service-cidr: {{ k3s_service_cidr }}
+data-dir: {{ k3s_data_dir }}
+write-kubeconfig-mode: '0600'
+disable: []

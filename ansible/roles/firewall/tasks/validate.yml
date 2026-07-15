@@ -1,0 +1,2 @@
+- name: Verify at least one management network is configured
+  ansible.builtin.assert: {that: [management_networks | length > 0], quiet: true}

@@ -1,0 +1,28 @@
+- name: Verify mount declarations are complete
+  ansible.builtin.assert:
+    that: [item.path is defined, item.src is defined, item.fstype is defined]
+  loop: "{{ storage_mounts }}"
+
+- name: Inspect declared local block devices
+  ansible.builtin.stat:
+    path: "{{ item.src }}"
+    follow: true
+  loop: "{{ storage_mounts }}"
+  when: item.src is match('^/dev/')
+  register: storage_local_devices
+
+- name: Verify declared local block devices exist
+  ansible.builtin.assert:
+    that: item.stat.exists
+    fail_msg: "Mount source {{ item.item.src }} does not exist on {{ inventory_hostname }}."
+  loop: "{{ storage_local_devices.results }}"
+  when: not (item.skipped | default(false))
+
+- name: Mount declared storage
+  ansible.posix.mount:
+    path: "{{ item.path }}"
+    src: "{{ item.src }}"
+    fstype: "{{ item.fstype }}"
+    opts: "{{ item.opts | default('defaults') }}"
+    state: mounted
+  loop: "{{ storage_mounts }}"

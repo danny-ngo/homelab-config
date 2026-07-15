@@ -1,0 +1,4 @@
+- name: Configure the persistent infrastructure host
+  hosts: infra_hosts
+  gather_facts: true
+  roles: [common, infra_host, tailscale, dotfiles]

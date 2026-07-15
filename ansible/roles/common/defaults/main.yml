@@ -1,0 +1,2 @@
+common_packages: []
+common_hostname: "{{ inventory_hostname }}"

@@ -1,0 +1,2 @@
+argument_specs:
+  main: {options: {dotfiles_repo: {type: str}, dotfiles_branch: {type: str}, dotfiles_target_user: {type: str}}}

@@ -1,0 +1,27 @@
+- name: Verify Pi-hole platform prerequisites
+  ansible.builtin.assert:
+    that:
+      - ansible_memtotal_mb >= pihole_minimum_memory_mb
+      - ansible_os_family == 'Debian'
+      - ansible_architecture in ['armv6l', 'armv7l', 'aarch64', 'x86_64']
+    fail_msg: Pi-hole requires a maintained supported OS and at least 512 MB RAM.
+
+- name: Verify this Pi-hole has a vaulted web password hash
+  ansible.builtin.assert:
+    that:
+      - vault_pihole_web_password_hashes is defined
+      - inventory_hostname in (vault_pihole_web_password_hashes | default({}))
+    fail_msg: >-
+      Add a password hash for {{ inventory_hostname }} to
+      vault_pihole_web_password_hashes in the encrypted production vault.
+  no_log: true
+
+- name: Clone the pinned Pi-hole release
+  ansible.builtin.git:
+    repo: https://github.com/pi-hole/pi-hole.git
+    dest: /usr/local/src/pi-hole
+    version: "{{ pihole_version }}"
+    depth: 1
+- name: Render the protected Pi-hole configuration
+  ansible.builtin.template: {src: pihole.toml.j2, dest: /etc/pihole/pihole.toml, mode: '0600'}
+  no_log: true

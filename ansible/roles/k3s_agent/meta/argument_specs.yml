@@ -1,0 +1,10 @@
+argument_specs:
+  main:
+    options:
+      k3s_node_address: {type: str, required: true}
+      k3s_server_url: {type: str}
+      k3s_version: {type: str}
+      k3s_node_labels: {type: list, elements: str}
+      k3s_node_taints: {type: list, elements: str}
+      k3s_binary_assets: {type: dict}
+      k3s_binary_checksums: {type: dict}

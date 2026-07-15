@@ -1,0 +1,4 @@
+- name: Read Tailscale status
+  ansible.builtin.command: tailscale status --json
+  changed_when: false
+  when: ansible_os_family != 'Darwin'

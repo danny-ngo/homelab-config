@@ -1,0 +1,3 @@
+dotfiles_target_user: "{{ ansible_user }}"
+dotfiles_repo: https://github.com/danny-ngo/dotfiles
+dotfiles_branch: main

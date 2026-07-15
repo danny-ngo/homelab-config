@@ -1,0 +1,24 @@
+- name: Verify host identity and administrator access inputs
+  ansible.builtin.assert:
+    that:
+      - ansible_os_family == expected_os_family
+      - ansible_architecture == expected_architecture
+      - administrator_public_keys | length > 0
+- name: Set the Linux hostname
+  ansible.builtin.hostname:
+    name: "{{ common_hostname }}"
+  when: ansible_system == 'Linux'
+- name: Install common packages
+  ansible.builtin.package:
+    name: "{{ common_packages }}"
+    state: present
+  when: common_packages | length > 0
+- name: Install administrator SSH keys
+  ansible.builtin.authorized_key:
+    user: "{{ ansible_user }}"
+    key: "{{ item }}"
+  loop: "{{ administrator_public_keys }}"
+  when: ansible_system == 'Linux'
+- name: Apply gated SSH hardening
+  ansible.builtin.include_tasks: ssh.yml
+  when: ansible_system == 'Linux'

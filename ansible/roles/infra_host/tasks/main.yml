@@ -1,0 +1,12 @@
+- name: Install infrastructure host utilities
+  ansible.builtin.package:
+    name: "{{ infra_host_packages }}"
+    state: present
+
+- name: Create the persistent infrastructure root
+  ansible.builtin.file:
+    path: "{{ infra_host_root }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"

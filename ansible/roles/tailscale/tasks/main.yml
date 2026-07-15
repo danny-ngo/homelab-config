@@ -1,0 +1,15 @@
+- name: Install the Tailscale app on macOS
+  community.general.homebrew_cask: {name: tailscale-app, state: present}
+  when: ansible_os_family == 'Darwin'
+- name: Install Tailscale on Linux
+  ansible.builtin.package: {name: tailscale, state: present}
+  when: ansible_os_family != 'Darwin'
+- name: Enable and start Tailscale on Linux
+  ansible.builtin.service: {name: tailscaled, enabled: true, state: started}
+  when: ansible_os_family != 'Darwin'
+- name: Apply complete Linux Tailscale preferences
+  ansible.builtin.command:
+    argv: [tailscale, up, --accept-dns=false, --ssh=false, "--advertise-tags={{ tailscale_tag }}"]
+  no_log: true
+  when: ansible_os_family != 'Darwin' and tailscale_tag is defined
+  changed_when: false

@@ -1,0 +1,60 @@
+- name: Verify the K3s agent artifact and runtime token are available
+  ansible.builtin.assert:
+    that:
+      - groups.get('k3s_servers', []) | length == 1
+      - ansible_architecture in k3s_binary_assets
+      - ansible_architecture in k3s_binary_checksums
+      - k3s_binary_checksums[ansible_architecture] | length == 64
+      - hostvars[groups['k3s_servers'][0]].k3s_runtime_node_token is defined
+    fail_msg: >-
+      The agent needs one converged K3s server, its transient join token, and a verified
+      K3s {{ k3s_version }} artifact for {{ ansible_architecture }}.
+  no_log: true
+
+- name: Create the K3s agent configuration directory
+  ansible.builtin.file:
+    path: /etc/rancher/k3s
+    state: directory
+    owner: root
+    group: root
+    mode: "0700"
+
+- name: Install the checksum-verified K3s agent binary
+  ansible.builtin.get_url:
+    url: >-
+      {{ 'https://github.com/k3s-io/k3s/releases/download/' ~ k3s_version ~ '/'
+         ~ k3s_binary_assets[ansible_architecture] }}
+    dest: /usr/local/bin/k3s
+    checksum: "sha256:{{ k3s_binary_checksums[ansible_architecture] }}"
+    owner: root
+    group: root
+    mode: "0755"
+  notify: Restart K3s agent
+
+- name: Render the K3s agent configuration
+  ansible.builtin.template:
+    src: config.yaml.j2
+    dest: /etc/rancher/k3s/config.yaml
+    owner: root
+    group: root
+    mode: "0600"
+  no_log: true
+  notify: Restart K3s agent
+
+- name: Install the K3s agent systemd unit
+  ansible.builtin.template:
+    src: k3s-agent.service.j2
+    dest: /etc/systemd/system/k3s-agent.service
+    owner: root
+    group: root
+    mode: "0644"
+  notify:
+    - Reload systemd
+    - Restart K3s agent
+
+- name: Enable and start the K3s agent
+  ansible.builtin.systemd_service:
+    name: k3s-agent
+    enabled: true
+    state: started
+    daemon_reload: true

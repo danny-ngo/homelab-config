@@ -1,0 +1,7 @@
+codex_version: 0.144.4
+execution_node_user: "{{ ansible_user }}"
+mise_node_version: '24'
+mise_go_version: '1.24'
+mise_rust_version: stable
+docker_log_max_size: 10m
+docker_log_max_files: '3'

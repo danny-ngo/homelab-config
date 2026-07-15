@@ -1,0 +1,40 @@
+- name: Install execution-node packages
+  ansible.builtin.package:
+    name: [git, zsh, python, uv, mise, docker, docker-compose, docker-buildx-plugin, bubblewrap, stow]
+    state: present
+- name: Configure bounded Docker logs and live restore
+  ansible.builtin.template:
+    src: daemon.json.j2
+    dest: /etc/docker/daemon.json
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Restart Docker
+- name: Enable and start Docker
+  ansible.builtin.service: {name: docker, enabled: true, state: started}
+- name: Grant the execution-node user Docker access
+  ansible.builtin.user: {name: "{{ execution_node_user }}", groups: docker, append: true}
+- name: Create the mise configuration directory
+  ansible.builtin.file:
+    path: "/home/{{ execution_node_user }}/.config/mise"
+    state: directory
+    owner: "{{ execution_node_user }}"
+    mode: '0755'
+- name: Render the execution-node mise configuration
+  ansible.builtin.template:
+    src: mise-config.toml.j2
+    dest: "/home/{{ execution_node_user }}/.config/mise/config.toml"
+    owner: "{{ execution_node_user }}"
+    mode: '0644'
+- name: Install mise-managed tool versions
+  ansible.builtin.command: mise install
+  become_user: "{{ execution_node_user }}"
+  become: true
+  environment:
+    HOME: "/home/{{ execution_node_user }}"
+  changed_when: false
+- name: Report execution-node security and operator actions
+  ansible.builtin.debug:
+    msg: >-
+      Docker group membership grants root-equivalent access. Python is uv-managed;
+      Node, Go, and Rust are mise-managed. Codex {{ codex_version }} login remains an operator action.

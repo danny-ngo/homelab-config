@@ -1,0 +1,10 @@
+argument_specs:
+  main:
+    options:
+      codex_version: {type: str}
+      execution_node_user: {type: str}
+      mise_node_version: {type: str}
+      mise_go_version: {type: str}
+      mise_rust_version: {type: str}
+      docker_log_max_size: {type: str}
+      docker_log_max_files: {type: str}

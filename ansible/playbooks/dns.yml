@@ -1,0 +1,6 @@
+- name: Provision resolvers one at a time
+  hosts: pihole_nodes
+  serial: 1
+  any_errors_fatal: true
+  gather_facts: true
+  roles: [common, pihole, firewall]

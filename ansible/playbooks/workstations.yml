@@ -1,0 +1,4 @@
+- name: Configure workstation packages and dotfiles
+  hosts: workstations
+  gather_facts: true
+  roles: [workstation, tailscale, dotfiles]

@@ -1,0 +1,2 @@
+- name: Verify storage mounts are iterable
+  ansible.builtin.assert: {that: [storage_mounts is iterable], quiet: true}

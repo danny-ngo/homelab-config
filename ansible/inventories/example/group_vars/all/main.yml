@@ -1,0 +1,10 @@
+common_packages: [git, curl, ca-certificates]
+storage_mounts: []
+dotfiles_repo: https://github.com/danny-ngo/dotfiles
+dotfiles_branch: main
+dotfiles_packages_linux: [fastfetch, git, starship, zsh]
+dotfiles_packages_macos: [fastfetch, ghostty, git, starship, zsh]
+k3s_version: v1.35.6+k3s1
+k3s_fetch_kubeconfig: false
+k3s_experimental_worker_enabled: false
+pihole_version: v6.4.3

@@ -1,0 +1,7 @@
+- name: Verify the configured dotfiles source is usable
+  ansible.builtin.assert:
+    that:
+      - dotfiles_repo | length > 0
+      - dotfiles_branch | length > 0
+      - dotfiles_target_user | length > 0
+    quiet: true

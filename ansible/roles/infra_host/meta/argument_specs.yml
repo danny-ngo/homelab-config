@@ -1,0 +1,5 @@
+argument_specs:
+  main:
+    options:
+      infra_host_root: {type: path}
+      infra_host_packages: {type: list, elements: str}

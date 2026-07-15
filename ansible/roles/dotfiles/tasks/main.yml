@@ -1,0 +1,29 @@
+- name: Install Stow on Linux
+  ansible.builtin.package: {name: stow, state: present}
+  when: ansible_os_family != 'Darwin'
+- name: Clone or update dotfiles on Linux
+  ansible.builtin.git:
+    repo: "{{ dotfiles_repo }}"
+    dest: "/home/{{ dotfiles_target_user }}/Developer/dotfiles"
+    version: "{{ dotfiles_branch }}"
+    update: true
+  become_user: "{{ dotfiles_target_user }}"
+  become: true
+  when: ansible_os_family != 'Darwin'
+- name: Resolve the deployed dotfiles revision
+  ansible.builtin.command:
+    argv: [git, rev-parse, HEAD]
+    chdir: "/home/{{ dotfiles_target_user }}/Developer/dotfiles"
+  register: dotfiles_revision
+  changed_when: false
+  become_user: "{{ dotfiles_target_user }}"
+  become: true
+  when: ansible_os_family != 'Darwin'
+- name: Record the deployed dotfiles revision
+  ansible.builtin.copy:
+    content: "{{ dotfiles_revision.stdout }}\n"
+    dest: "/home/{{ dotfiles_target_user }}/.local/state/homelab/dotfiles-revision"
+    mode: '0644'
+  become_user: "{{ dotfiles_target_user }}"
+  become: true
+  when: ansible_os_family != 'Darwin'

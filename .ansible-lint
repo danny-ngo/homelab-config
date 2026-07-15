@@ -1,0 +1,10 @@
+profile: basic
+exclude_paths:
+  - .venv/
+  - .ansible/
+  - ansible/inventories/production/
+skip_list:
+  - name[template]
+  # The public inventory contract intentionally shares variables such as
+  # k3s_version and mise_* across more than one role.
+  - var-naming[no-role-prefix]

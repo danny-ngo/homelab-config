@@ -1,0 +1,10 @@
+- name: Inspect the persistent infrastructure root
+  ansible.builtin.stat:
+    path: "{{ infra_host_root }}"
+  register: infra_host_root_status
+
+- name: Verify the persistent infrastructure root
+  ansible.builtin.assert:
+    that:
+      - infra_host_root_status.stat.isdir | default(false)
+    fail_msg: "The infrastructure root {{ infra_host_root }} is not a directory."

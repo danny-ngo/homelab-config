@@ -1,0 +1,14 @@
+- name: Inspect the K3s server configuration
+  ansible.builtin.stat: {path: /etc/rancher/k3s/config.yaml}
+  register: k3s_server_config
+
+- name: Read K3s server service state
+  ansible.builtin.service_facts:
+
+- name: Verify the K3s server is secured and running
+  ansible.builtin.assert:
+    that:
+      - k3s_server_config.stat.mode == '0600'
+      - ansible_facts.services['k3s.service'].status == 'enabled'
+      - ansible_facts.services['k3s.service'].state == 'running'
+    quiet: true

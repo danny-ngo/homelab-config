@@ -1,0 +1,2 @@
+argument_specs:
+  main: {options: {storage_mounts: {type: list, elements: dict}}}
