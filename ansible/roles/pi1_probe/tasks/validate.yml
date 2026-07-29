@@ -1,0 +1,29 @@
+- name: Inspect the ping probe files
+  ansible.builtin.stat:
+    path: "{{ item }}"
+  loop:
+    - /usr/local/sbin/pi1-ping-probe
+    - "{{ pi1_probe_config_dir }}/targets.tsv"
+    - "{{ pi1_probe_config_dir }}/heartbeat.url"
+    - /etc/systemd/system/pi1-ping-probe.service
+  register: pi1_probe_file_stats
+
+- name: Read ping probe service state
+  ansible.builtin.service_facts:
+
+- name: Verify the ping probe installation
+  ansible.builtin.assert:
+    that:
+      - >-
+        pi1_probe_file_stats.results
+        | map(attribute='stat.exists')
+        | min
+      - >-
+        ansible_facts.services.get('pi1-ping-probe.service', {}).get('status')
+        == 'enabled'
+      - >-
+        ansible_facts.services.get('pi1-ping-probe.service', {}).get('state')
+        == 'running'
+      - pi1_probe_file_stats.results[1].stat.mode == '0640'
+      - pi1_probe_file_stats.results[2].stat.mode == '0640'
+    quiet: true

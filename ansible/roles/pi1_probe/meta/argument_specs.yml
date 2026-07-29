@@ -1,0 +1,17 @@
+argument_specs:
+  main:
+    options:
+      pi1_probe_targets:
+        type: list
+        elements: dict
+        required: true
+        options:
+          name: {type: str, required: true}
+          address: {type: str, required: true}
+          healthchecks_url: {type: str, required: true}
+      pi1_probe_heartbeat_url: {type: str, required: true}
+      pi1_probe_interval_seconds: {type: int}
+      pi1_probe_ping_timeout_seconds: {type: int}
+      pi1_probe_http_timeout_seconds: {type: int}
+      pi1_probe_user: {type: str}
+      pi1_probe_config_dir: {type: path}

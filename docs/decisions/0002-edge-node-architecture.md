@@ -10,8 +10,10 @@ Both Raspberry Pi 1 Model A+ boards are confirmed to have 256 MB RAM. Do not
 run Pi-hole on either one: they are below Pi-hole's supported 512 MB minimum.
 A smaller operating system does not change that product requirement, so neither
 DietPi nor Alpine makes these boards supported Pi-hole hosts. Keep both outside
-managed inventory because the repository's uv-managed Python bootstrap also
-does not support ARMv6.
+the standard managed-node baseline because the repository's uv-managed Python
+bootstrap does not support ARMv6. Admit only the selected Wake-on-LAN and
+reachability-probe roles through the `pi1_edge_nodes` inventory parent, using
+Raspberry Pi OS distribution Python as an explicit exception.
 
 Retain the bare-metal Pi-hole role for future hosts with at least 512 MB RAM.
 For Raspberry Pi replacement hardware, prefer current Raspberry Pi OS Lite
@@ -186,30 +188,31 @@ The DHCP DNS server option is defined by
 
 ## Raspberry Pi 1 disposition
 
-The Pi 1 boards can still be useful when their role is optional, tolerant of
-slow ARMv6 hardware, and does not depend on this repository's Python bootstrap.
-Rank the practical options as follows:
+Assign one Pi 1 as a Wake-on-LAN box and the other as a reachability probe.
+These are optional leaf functions that tolerate slow ARMv6 hardware:
 
-1. A GPIO sensor or actuator node running a very small OS and a C, Go, or shell
-   daemon. Publish low-rate temperature, contact, or power telemetry through a
-   USB Wi-Fi adapter; do not make alerting or automation safety depend on it.
-2. A local e-ink/LCD status display, clock, or simple information radiator.
-   Cache the last display state so a network or SD-card failure has no wider
-   effect.
-3. A lab-only ARMv6 compatibility target for cross-compiled binaries, Linux
-   fundamentals, GPIO experiments, or retro-computing projects.
-4. A secondary GPS-backed NTP experiment using GPIO/UART for the receiver and
-   USB for networking. Treat it as an additional time source, never the only
-   one.
-5. A powered-off spare or donor board if none of those projects is genuinely
-   useful; this avoids ongoing SD-card, adapter, and maintenance costs.
+- The Wake-on-LAN role installs fixed, locally invoked commands for the
+  ThinkPad and ThinkCentre. It exposes no new network listener and remains
+  useful when either x86 host is shut down.
+- The probe sends ICMP echo requests and publishes successful target
+  heartbeats plus its own heartbeat to Healthchecks.io over outbound HTTPS.
+  Healthchecks owns late detection, incident state, recovery, maintenance
+  pauses, and the selected mobile integration.
 
-Avoid Pi-hole, DHCP, routing, storage, databases, monitoring control planes, and
-other core services. A Pi 1 A+ has no built-in Ethernet and only one USB port,
-so projects needing both USB networking and another USB peripheral also need a
-powered hub. Any managed deployment would require a documented ARMv6 exception
-using the distribution Python rather than the standard uv-managed Python 3.14
-bootstrap.
+The probe is not a monitoring control plane. It stores no history, accepts no
+inbound requests, and sends no automatic wake command. A cloud-side self
+heartbeat makes loss of the probe visible, although shared power, router,
+switch, Internet, and external-service failures remain dependencies.
+
+Use Raspberry Pi OS Lite 32-bit and prefer USB Ethernet. A Pi 1 A+ has no
+built-in Ethernet and only one USB port, so projects needing networking plus a
+USB peripheral require a powered hub. Keep these hosts out of `linux_nodes`,
+K3s, Pi-hole, Tailscale, storage, dotfiles, and language-toolchain roles.
+Purpose-specific playbooks use `/usr/bin/python3` from Raspberry Pi OS; the
+standard installer and uv-managed Python bootstrap remain rejected on ARMv6.
+
+See the
+[Pi 1 edge-services runbook](../runbooks/pi1-edge-services.md).
 
 ## Raspberry Pi 2 role selection
 
@@ -357,8 +360,8 @@ Sources:
 ## Remaining implementation inputs
 
 The operator inputs that remain after this decision—Pi 2 deployment form,
-second-resolver selection, router behavior, upstream/local DNS policy, and
-final Pi 1 disposition—are tracked only in
+second-resolver selection, router behavior, and upstream/local DNS policy—are
+tracked only in
 [Open homelab decisions](open-decisions.md). That file is the canonical
 backlog; this accepted record retains the rationale and settled role selection.
 
@@ -369,8 +372,9 @@ backlog; this accepted record retains the rationale and settled role selection.
   web password hash.
 - With two future hosts, DNS can remain available during one Pi-hole update or
   node failure, subject to client retry behavior and shared dependencies.
-- Both 256 MB Pi 1 boards are excluded from production DNS and managed
-  inventory, but remain candidates for optional lightweight projects.
+- Both 256 MB Pi 1 boards are excluded from production DNS and the standard
+  managed-node baseline. Purpose-specific inventory groups admit only the
+  selected Wake-on-LAN and reachability-probe roles.
 - Raspberry Pi OS and bare metal use more disk than Alpine alone but reduce
   operational variance and runtime layers.
 - The Pi 2 remains outside the example K3s worker group until a K3s Pi-hole

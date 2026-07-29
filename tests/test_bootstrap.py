@@ -97,6 +97,24 @@ class BootstrapTests(unittest.TestCase):
         self.assertIn("limit: pihole1", result.stdout)
         self.assertIn("--check", result.stdout)
 
+    def test_pi1_profiles_use_the_purpose_specific_playbooks(self):
+        cases = {
+            "pi1-wol": ("ansible/playbooks/pi1-wol.yml", "pi1_wol_nodes"),
+            "pi1-probe": ("ansible/playbooks/pi1-probe.yml", "pi1_probe_nodes"),
+        }
+        for profile, (playbook, default_limit) in cases.items():
+            with self.subTest(profile=profile):
+                result = self.run_bootstrap(
+                    "--platform",
+                    "macos",
+                    "--profile",
+                    profile,
+                )
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertIn(playbook, result.stdout)
+                self.assertIn(f"limit: {default_limit}", result.stdout)
+                self.assertNotIn("ansible/playbooks/site.yml", result.stdout)
+
     def test_linux_explicit_profile_is_rejected_after_prerequisite_preview(self):
         result = self.run_bootstrap("--platform", "arch", "--profile", "execution-node")
         self.assertEqual(result.returncode, 2)

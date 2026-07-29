@@ -41,7 +41,8 @@ Homebrew, installs a uv-managed Python 3.14, and installs
 Ansible does not use macOS's system Python or the repository virtual
 environment. Ansible is not present in the Brewfile.
 
-Run the same remote installer locally on every fresh Linux node:
+Run the same remote installer locally on every fresh Linux node except the
+ARMv6 Pi 1 boards:
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/danny-ngo/homelab-config/main/install.sh | bash
@@ -53,12 +54,17 @@ machine-global `uv` executable, a per-user uv-managed Python 3.14, and
 `uv python pin --global 3.14`. It does not retain a checkout, install Ansible,
 or run a playbook. Then apply profiles from the MacBook checkout:
 
+Prepare Pi 1 boards through their documented Raspberry Pi OS exception instead
+of this installer; see the Pi 1 runbook linked below.
+
 ```sh
 ./bootstrap.sh                                  # bootstrap/apply the Mac workstation
 ./bootstrap.sh --profile infra                  # stable ThinkPad infra plays
 ./bootstrap.sh --profile execution-node         # ThinkCentre configuration
 ./bootstrap.sh --profile pihole --limit pi2
 ./bootstrap.sh --profile k3s-worker --limit pi3a
+./bootstrap.sh --profile pi1-wol --limit pi1wol
+./bootstrap.sh --profile pi1-probe --limit pi1probe
 ./bootstrap.sh --profile infra --check           # Ansible check mode
 ./bootstrap.sh --prepare-only                    # controller tooling only
 ```
@@ -89,7 +95,9 @@ responsibilities separate:
   syntax checks, filters, and tests; and
 - each Linux target has a global uv executable plus a per-user uv-managed
   Python 3.14/global pin, while its distribution-owned `/usr/bin/python3`
-  executes Ansible modules.
+  executes Ansible modules. The ARMv6 Pi 1 roles are a documented exception:
+  they use only distribution Python and do not run the standard Linux
+  bootstrap.
 
 The repository environment is declared by `pyproject.toml`, resolved in the
 committed `uv.lock`, and recreated with:
@@ -135,13 +143,19 @@ only the packages needed before Ansible can run. Tailscale and firewall
 packages are installed by the roles that configure them; Stow belongs to the
 dotfiles flow (the Linux dotfiles role or the macOS Brewfile).
 
-Both Raspberry Pi 1 A+ boards are confirmed to have 256 MB RAM, so they remain
-outside managed inventory and cannot run the supported Pi-hole role. The 1 GB
-Raspberry Pi 2 is reserved for Pi-hole. A worker-only K3s agent plus the Pi-hole
-pod is feasible, but the K3s minimum is a pre-workload baseline, so this is not
-generous headroom. The current example inventory remains on the implemented
-bare-metal path until the container networking, persistence, resource limits,
-and node placement are defined.
+Both Raspberry Pi 1 A+ boards are confirmed to have 256 MB RAM and remain
+excluded from Pi-hole, K3s, and the standard managed-node baseline. They have
+purpose-specific ARMv6 roles instead: one sends fixed Wake-on-LAN commands and
+one publishes target and self heartbeats to Healthchecks.io after successful
+pings. Their `pi1_edge_nodes` inventory parent selects distribution
+`/usr/bin/python3` without uv. See the
+[Pi 1 edge-services runbook](docs/runbooks/pi1-edge-services.md).
+
+The 1 GB Raspberry Pi 2 is reserved for Pi-hole. A worker-only K3s agent plus
+the Pi-hole pod is feasible, but the K3s minimum is a pre-workload baseline, so
+this is not generous headroom. The current example inventory remains on the
+implemented bare-metal path until the container networking, persistence,
+resource limits, and node placement are defined.
 
 Monitor DNS from another node with an end-to-end query. Portainer on another
 node can manage a standalone Docker deployment through an ARMv7 Agent or Edge
@@ -155,4 +169,4 @@ later before claiming DNS redundancy. See
 The remaining operator choices are consolidated in
 [Open homelab decisions](docs/decisions/open-decisions.md).
 
-Use `make check PLAYBOOK=... LIMIT=host` before `make apply`. Password SSH remains enabled until both recovery flags are explicitly true. Router/DHCP changes, destructive storage, and K3s reboot testing are intentionally opt-in. Rootful Docker and root-equivalent `docker` group access are accepted for the trusted ThinkCentre execution account. See [DNS runbook](docs/runbooks/dns.md) and [K3s recovery](docs/runbooks/k3s-recovery.md).
+Use `make check PLAYBOOK=... LIMIT=host` before `make apply`. Password SSH remains enabled until both recovery flags are explicitly true. Router/DHCP changes, destructive storage, and K3s reboot testing are intentionally opt-in. Rootful Docker and root-equivalent `docker` group access are accepted for the trusted ThinkCentre execution account. See the [DNS runbook](docs/runbooks/dns.md), [K3s recovery](docs/runbooks/k3s-recovery.md), and [Pi 1 edge-services runbook](docs/runbooks/pi1-edge-services.md).

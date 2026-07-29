@@ -1,0 +1,14 @@
+#!/bin/sh
+set -eu
+
+packet_count=0
+while [ "$packet_count" -lt {{ pi1_wol_repeat_count }} ]; do
+  /usr/bin/wakeonlan \
+    -i "{{ item.broadcast_address | default(pi1_wol_default_broadcast_address) }}" \
+    -p "{{ item.port | default(pi1_wol_default_port) }}" \
+    "{{ item.mac_address }}"
+  packet_count=$((packet_count + 1))
+  if [ "$packet_count" -lt {{ pi1_wol_repeat_count }} ]; then
+    /bin/sleep "{{ pi1_wol_repeat_interval_seconds }}"
+  fi
+done

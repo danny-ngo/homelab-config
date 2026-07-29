@@ -1,0 +1,4 @@
+- name: Configure Pi 1 Wake-on-LAN boxes
+  hosts: pi1_wol_nodes
+  gather_facts: true
+  roles: [pi1_wol]

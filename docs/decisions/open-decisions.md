@@ -22,7 +22,6 @@ architecture decisions are not repeated here.
 | Confirm IPv4 DHCP option 6 and IPv6 RA/DHCPv6 behavior | Prove two filtered resolver addresses can be advertised without an unfiltered IPv6 bypass | Router cutover |
 | Choose the common upstream policy | Provider resolvers or local Unbound, DNSSEC behavior, and intentional upstream diversity | Final Pi-hole configuration |
 | Choose local DNS policy | Local records, lists, privacy level, retention, and web UI requirement | Final Pi-hole configuration |
-| Choose a disposition for the two 256 MB Pi 1 boards | Prefer a GPIO sensor/display or lab-only ARMv6 target; otherwise retain powered off or retire | Hardware inventory closure |
 
 ## Access and configuration promotion
 
@@ -43,8 +42,9 @@ architecture decisions are not repeated here.
 
 ## Settled and removed from this backlog
 
-- Both Pi 1 boards have 256 MB RAM and are excluded from Pi-hole and managed
-  inventory.
+- Both Pi 1 boards have 256 MB RAM. They are excluded from Pi-hole, K3s, and
+  the standard Linux baseline; purpose-specific ARMv6 roles configure a
+  Wake-on-LAN box and an outbound reachability probe.
 - The Pi 2 is reserved for Pi-hole and must not run unrelated workloads; its
   deployment form is reopened.
 - The MacBook is the Ansible controller.

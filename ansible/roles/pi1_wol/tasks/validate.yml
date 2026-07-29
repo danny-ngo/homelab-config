@@ -1,0 +1,25 @@
+- name: Collect installed package facts for the Wake-on-LAN box
+  ansible.builtin.package_facts:
+    manager: auto
+
+- name: Inspect installed Wake-on-LAN target commands
+  ansible.builtin.stat:
+    path: "/usr/local/bin/wake-{{ item.name }}"
+  loop: "{{ pi1_wol_targets }}"
+  loop_control:
+    label: "{{ item.name }}"
+  register: pi1_wol_command_stats
+
+- name: Verify the Wake-on-LAN box installation
+  ansible.builtin.assert:
+    that:
+      - "'wakeonlan' in ansible_facts.packages"
+      - >-
+        pi1_wol_command_stats.results
+        | map(attribute='stat.exists')
+        | min
+      - >-
+        pi1_wol_command_stats.results
+        | map(attribute='stat.executable')
+        | min
+    quiet: true

@@ -276,6 +276,72 @@ class RepositoryContractTests(unittest.TestCase):
         manifest_children = set(groups["non_raspberry_pi_linux"]["children"])
         self.assertEqual(manifest_children, {"infra_hosts", "execution_nodes"})
 
+    def test_pi1_nodes_use_only_the_documented_armv6_inventory_exception(self):
+        groups = self.inventory["all"]["children"]
+        pi1_children = set(groups["pi1_edge_nodes"]["children"])
+        linux_children = set(groups["linux_nodes"]["children"])
+
+        self.assertEqual(pi1_children, {"pi1_wol_nodes", "pi1_probe_nodes"})
+        self.assertTrue(pi1_children.isdisjoint(linux_children))
+        self.assertEqual(
+            groups["pi1_edge_nodes"]["vars"]["ansible_python_interpreter"],
+            "/usr/bin/python3",
+        )
+
+        for group_name in pi1_children:
+            for host in groups[group_name]["hosts"].values():
+                self.assertEqual(host["expected_os_family"], "Debian")
+                self.assertEqual(host["expected_architecture"], "armv6l")
+
+    def test_pi1_probe_uses_vaulted_healthchecks_and_no_message_broker(self):
+        groups = self.inventory["all"]["children"]
+        probe = groups["pi1_probe_nodes"]["hosts"]["pi1probe"]
+        vault_example = yaml.safe_load(
+            (
+                ROOT
+                / "ansible"
+                / "inventories"
+                / "example"
+                / "group_vars"
+                / "all"
+                / "vault.yml.example"
+            ).read_text()
+        )
+        role_root = ROOT / "ansible" / "roles" / "pi1_probe"
+        role_text = "\n".join(
+            path.read_text() for path in role_root.rglob("*") if path.is_file()
+        )
+
+        self.assertEqual(
+            {target["name"] for target in probe["pi1_probe_targets"]},
+            {"thinkpad", "thinkcentre"},
+        )
+        self.assertEqual(
+            set(vault_example["vault_pi1_probe_healthchecks_urls"]["pi1probe"]),
+            {"probe", "thinkpad", "thinkcentre"},
+        )
+        self.assertIn("Healthchecks", role_text)
+        self.assertIn("User={{ pi1_probe_user }}", role_text)
+        self.assertIn("NoNewPrivileges=true", role_text)
+        self.assertNotIn("mqtt", role_text.lower())
+        self.assertNotIn("mosquitto", role_text.lower())
+
+    def test_pi1_wol_installs_fixed_non_root_wake_commands(self):
+        groups = self.inventory["all"]["children"]
+        wol = groups["pi1_wol_nodes"]["hosts"]["pi1wol"]
+        role_root = ROOT / "ansible" / "roles" / "pi1_wol"
+        tasks = (role_root / "tasks" / "main.yml").read_text()
+        command_template = (role_root / "templates" / "wake-target.sh.j2").read_text()
+
+        self.assertEqual(
+            {target["name"] for target in wol["pi1_wol_targets"]},
+            {"thinkpad", "thinkcentre"},
+        )
+        self.assertIn("name: wakeonlan", tasks)
+        self.assertIn("/usr/local/bin/wake-{{ item.name }}", tasks)
+        self.assertIn("/usr/bin/wakeonlan", command_template)
+        self.assertNotIn("sudo", command_template)
+
     def test_bootstrap_uses_focused_library_modules(self):
         bootstrap = (ROOT / "bootstrap.sh").read_text()
         for module in ("detect-platform.sh", "logging.sh", "requirements.sh"):

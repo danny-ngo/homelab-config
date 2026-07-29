@@ -66,3 +66,21 @@
         name: "{{ item }}"
         tasks_from: validate
       loop: [k3s_prereqs, k3s_agent]
+
+- name: Validate Pi 1 Wake-on-LAN boxes
+  hosts: pi1_wol_nodes
+  gather_facts: true
+  tasks:
+    - name: Run Pi 1 Wake-on-LAN validation
+      ansible.builtin.include_role:
+        name: pi1_wol
+        tasks_from: validate
+
+- name: Validate Pi 1 reachability probes
+  hosts: pi1_probe_nodes
+  gather_facts: true
+  tasks:
+    - name: Run Pi 1 probe validation
+      ansible.builtin.include_role:
+        name: pi1_probe
+        tasks_from: validate

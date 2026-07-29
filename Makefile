@@ -9,7 +9,7 @@ LIMIT ?=
 PROFILE ?=
 BOOTSTRAP_ARGS ?=
 
-.PHONY: bootstrap prepare deps init-inventory inventory lint syntax test ci check apply validate idempotency phase1 phase2 dns k3s k3s-reboot-test
+.PHONY: bootstrap prepare deps init-inventory inventory lint syntax test ci check apply validate idempotency phase1 phase2 dns k3s k3s-reboot-test pi1-wol pi1-probe
 bootstrap: ; ./bootstrap.sh $(if $(PROFILE),--profile $(PROFILE)) $(if $(LIMIT),--limit $(LIMIT)) $(BOOTSTRAP_ARGS)
 prepare: ; ./bootstrap.sh --prepare-only
 deps: ; $(ANSIBLE_GALAXY) collection install -r ansible/requirements.yml -p .ansible/collections
@@ -31,3 +31,5 @@ phase2: ; $(MAKE) apply PLAYBOOK=ansible/playbooks/workstations.yml LIMIT="$(LIM
 dns: ; $(MAKE) apply PLAYBOOK=ansible/playbooks/dns.yml LIMIT="$(LIMIT)"
 k3s: ; $(MAKE) apply PLAYBOOK=ansible/playbooks/k3s.yml LIMIT="$(LIMIT)"
 k3s-reboot-test: ; test -n "$(LIMIT)" && $(MAKE) apply PLAYBOOK=ansible/playbooks/k3s.yml LIMIT="$(LIMIT)"
+pi1-wol: ; $(MAKE) apply PLAYBOOK=ansible/playbooks/pi1-wol.yml LIMIT="$(LIMIT)"
+pi1-probe: ; $(MAKE) apply PLAYBOOK=ansible/playbooks/pi1-probe.yml LIMIT="$(LIMIT)"

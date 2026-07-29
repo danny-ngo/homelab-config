@@ -1,0 +1,41 @@
+#!/bin/sh
+set -u
+
+targets_file="{{ pi1_probe_config_dir }}/targets.tsv"
+heartbeat_file="{{ pi1_probe_config_dir }}/heartbeat.url"
+interval_seconds="{{ pi1_probe_interval_seconds }}"
+ping_timeout_seconds="{{ pi1_probe_ping_timeout_seconds }}"
+http_timeout_seconds="{{ pi1_probe_http_timeout_seconds }}"
+tab="$(printf '\t')"
+
+publish_heartbeat() {
+  check_name="$1"
+  check_url="$2"
+  if ! /usr/bin/curl \
+    --fail \
+    --silent \
+    --show-error \
+    --max-time "$http_timeout_seconds" \
+    --retry 2 \
+    --retry-delay 1 \
+    -- "$check_url" >/dev/null 2>&1; then
+    printf 'Healthchecks update failed for %s\n' "$check_name" >&2
+  fi
+}
+
+while :; do
+  while IFS="$tab" read -r target_name target_address target_url; do
+    [ -n "$target_name" ] || continue
+    if /usr/bin/ping \
+      -n \
+      -c 1 \
+      -W "$ping_timeout_seconds" \
+      "$target_address" >/dev/null 2>&1; then
+      publish_heartbeat "$target_name" "$target_url"
+    fi
+  done < "$targets_file"
+
+  heartbeat_url="$(sed -n '1p' "$heartbeat_file")"
+  publish_heartbeat probe "$heartbeat_url"
+  /bin/sleep "$interval_seconds"
+done

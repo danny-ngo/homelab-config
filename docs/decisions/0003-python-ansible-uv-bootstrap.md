@@ -82,8 +82,9 @@ bootstrap does not install Ansible at all.
 The current x86_64, aarch64, and ARMv7 managed inventory can install
 uv-managed Python 3.14. ARMv6 can run the uv executable but has no published
 uv-managed CPython 3.14 build, so bootstrap rejects `armv6l` explicitly. The Pi
-1 boards remain outside managed inventory unless a Python exception or
-replacement-hardware decision is recorded.
+1 boards remain outside `linux_nodes`; their recorded `pi1_edge_nodes`
+exception uses Raspberry Pi OS `/usr/bin/python3` only for the two
+purpose-specific roles and does not invoke bootstrap or uv.
 
 ## Dependency and upgrade policy
 

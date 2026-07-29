@@ -14,6 +14,7 @@ SPEC.loader.exec_module(NETWORK)
 cidr_overlaps = NETWORK.cidr_overlaps
 cidr_prefix = NETWORK.cidr_prefix
 cidr_valid = NETWORK.cidr_valid
+ipv4_address_valid = NETWORK.ipv4_address_valid
 
 
 class NetworkTests(unittest.TestCase):
@@ -28,3 +29,8 @@ class NetworkTests(unittest.TestCase):
     def test_prefix(self):
         self.assertEqual(cidr_prefix("192.0.2.0/24"), 24)
         self.assertEqual(cidr_prefix("2001:db8::/48"), 48)
+
+    def test_ipv4_address_validation(self):
+        self.assertTrue(ipv4_address_valid("192.0.2.255"))
+        self.assertFalse(ipv4_address_valid("192.0.2.999"))
+        self.assertFalse(ipv4_address_valid("2001:db8::1"))

@@ -1,3 +1,8 @@
 # Copy to vault.yml and encrypt with ansible-vault before adding real values.
 vault_tailscale_auth_keys: {thinkpad: REPLACE_ME, thinkcentre: REPLACE_ME}
 vault_pihole_web_password_hashes: {pi2: REPLACE_ME}
+vault_pi1_probe_healthchecks_urls:
+  pi1probe:
+    probe: REPLACE_ME
+    thinkpad: REPLACE_ME
+    thinkcentre: REPLACE_ME

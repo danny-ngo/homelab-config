@@ -10,3 +10,7 @@
   import_playbook: dns.yml
 - name: Configure the K3s cluster
   import_playbook: k3s.yml
+- name: Configure Pi 1 Wake-on-LAN boxes
+  import_playbook: pi1-wol.yml
+- name: Configure Pi 1 reachability probes
+  import_playbook: pi1-probe.yml

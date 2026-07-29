@@ -25,7 +25,8 @@ Usage: ./bootstrap.sh [options] [-- ansible-playbook-arguments]
 Prepare a fresh machine or apply a machine profile from the macOS controller.
 
 Options:
-  --profile PROFILE    workstation, infra, execution-node, pihole, or k3s-worker
+  --profile PROFILE    workstation, infra, execution-node, pihole, k3s-worker,
+                       pi1-wol, or pi1-probe
   --limit TARGET       inventory host/group limit (profile-specific by default)
   --inventory PATH     inventory path (default: production inventory)
   --platform PLATFORM  override OS detection: macos, debian, or arch

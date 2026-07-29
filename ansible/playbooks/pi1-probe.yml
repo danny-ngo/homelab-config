@@ -1,0 +1,4 @@
+- name: Configure Pi 1 reachability probes
+  hosts: pi1_probe_nodes
+  gather_facts: true
+  roles: [pi1_probe]

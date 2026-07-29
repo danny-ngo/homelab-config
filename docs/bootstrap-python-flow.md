@@ -139,5 +139,9 @@ uv and uv-managed CPython 3.14 builds are available for the inventory's
 x86_64, aarch64, and ARMv7 nodes. uv publishes an ARMv6 executable, but the
 managed CPython source used by uv does not publish an ARMv6 Python 3.14 build.
 Bootstrap therefore rejects `armv6l` with an explicit error. The Pi 1 boards
-remain outside managed inventory; bringing one into service requires a
-documented Python exception or replacement hardware.
+remain outside the standard `linux_nodes` baseline. Their purpose-specific
+`pi1_edge_nodes` parent is the documented exception: Raspberry Pi OS
+distribution `/usr/bin/python3` executes Ansible modules, while the remote
+installer, uv, uv-managed Python, and the general Linux roles remain excluded.
+See the
+[Pi 1 edge-services runbook](runbooks/pi1-edge-services.md).
