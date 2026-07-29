@@ -42,8 +42,9 @@ bootstrap_detect_platform() {
 bootstrap_default_profile() {
   case "$1" in
     macos) printf 'workstation\n' ;;
-    arch) printf 'execution-node\n' ;;
-    debian) bootstrap_die "Debian hosts require --profile (infra, k3s-worker, or pihole)" ;;
+    arch|debian)
+      bootstrap_die "Linux hosts are managed nodes; run ./bootstrap.sh --prepare-only locally, then apply profiles from the macOS workstation"
+      ;;
     *) bootstrap_die "no default profile for platform: $1" ;;
   esac
 }

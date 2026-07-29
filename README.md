@@ -2,24 +2,65 @@
 
 Safe, inventory-driven Ansible automation for the Phase 0–4 homelab baseline.
 
-`./bootstrap.sh` is the single public bootstrap entry point. It detects macOS,
-Debian-family Linux, or Arch-family Linux, prepares the local Python 3.12
-Ansible environment through the matching module under `bootstrap/platforms/`,
-and dispatches a machine profile under `bootstrap/profiles/` to its Ansible
-playbook. The internal scripts are implementation details and are not intended
-to be invoked directly.
-
-macOS defaults to `workstation`, and Arch/CachyOS defaults to
-`execution-node`. Debian requires an explicit profile because this fleet uses
-Debian-family systems for several responsibilities:
+`install.sh` is the standalone remote entry point for a fresh machine. On
+macOS, it installs Homebrew and Git when needed, creates `~/src` by default,
+lets `git clone` create a persistent `~/src/homelab-config` checkout, and runs
+the controller bootstrap from that checkout. On Linux, it downloads a temporary
+repository archive and runs managed-node preparation without retaining a
+checkout:
 
 ```sh
-./bootstrap.sh --profile infra                 # stable ThinkPad infra plays
-./bootstrap.sh --profile execution-node        # ThinkCentre configuration
-./bootstrap.sh --profile pihole --limit pihole1
+curl -fsSL https://raw.githubusercontent.com/danny-ngo/homelab-config/main/install.sh | bash
+```
+
+Set `HOMELAB_CONFIG_PARENT` on the receiving shell to choose a different macOS
+parent directory; Git still names the checkout `homelab-config`:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/danny-ngo/homelab-config/main/install.sh \
+  | HOMELAB_CONFIG_PARENT="$HOME/Developer/Homelab" bash
+```
+
+An existing checkout with the expected origin is reused without pulling,
+resetting, or replacing local changes. After installation, run
+`cd ~/src/homelab-config` to enter the checkout; an installer's `cd` cannot
+change the calling shell's working directory.
+
+Within a checkout, `./bootstrap.sh` is the local operation entry point. It
+detects macOS, Debian-family Linux, or Arch-family Linux and prepares the
+current machine through the matching module under `bootstrap/platforms/`. Only
+macOS dispatches profiles under `bootstrap/profiles/`; Linux initial bootstrap
+installs the managed-node prerequisites and stops. The internal scripts are
+implementation details and are not intended to be invoked directly.
+
+The MacBook is the Ansible controller. On a fresh Mac, the remote installer
+owns the pre-checkout prerequisites: Homebrew and, only when no Git command is
+available afterward, Homebrew Git. The checkout bootstrap installs uv with
+Homebrew, installs a uv-managed Python 3.14, and installs
+`ansible-core==2.20.7` into uv's user-global tool environment. Operational
+Ansible does not use macOS's system Python or the repository virtual
+environment. Ansible is not present in the Brewfile.
+
+Run the same remote installer locally on every fresh Linux node:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/danny-ngo/homelab-config/main/install.sh | bash
+```
+
+It downloads a temporary source archive and makes
+`./bootstrap.sh --prepare-only` an internal handoff. That installs a
+machine-global `uv` executable, a per-user uv-managed Python 3.14, and
+`uv python pin --global 3.14`. It does not retain a checkout, install Ansible,
+or run a playbook. Then apply profiles from the MacBook checkout:
+
+```sh
+./bootstrap.sh                                  # bootstrap/apply the Mac workstation
+./bootstrap.sh --profile infra                  # stable ThinkPad infra plays
+./bootstrap.sh --profile execution-node         # ThinkCentre configuration
+./bootstrap.sh --profile pihole --limit pi2
 ./bootstrap.sh --profile k3s-worker --limit pi3a
-./bootstrap.sh --prepare-only                   # tooling only, used by CI
-./bootstrap.sh --profile infra --check          # Ansible check mode
+./bootstrap.sh --profile infra --check           # Ansible check mode
+./bootstrap.sh --prepare-only                    # controller tooling only
 ```
 
 Profiles use safe inventory-group limits unless `--limit` is supplied. On the
@@ -35,17 +76,75 @@ temporarily set `ANSIBLE_SSH_ARGS='-o StrictHostKeyChecking=accept-new'`; review
 the accepted fingerprints immediately afterward and do not use this shortcut
 when a host identity should already be known.
 
-The ThinkPad is modeled as the persistent infrastructure host and K3s server.
-It can run Ansible, but neither its inventory membership nor bootstrap flow
-makes it the mandatory controller; the same public entry point can be run from
-any supported operator machine.
+The ThinkPad is modeled as the persistent infrastructure host and K3s server,
+not as a second controller. The MacBook applies and recovers all managed-node
+profiles.
 
-Node, Go, and Rust are managed exclusively by Ansible through each user’s
-global `mise` configuration (`~/.config/mise/config.toml`).
+Bootstrap keeps controller, development, and managed-node Python
+responsibilities separate:
+
+- uv's global tool environment contains the operational Ansible CLI and uses
+  uv-managed Python 3.14;
+- the checkout-local `.venv` is a locked Python 3.14 environment for lint,
+  syntax checks, filters, and tests; and
+- each Linux target has a global uv executable plus a per-user uv-managed
+  Python 3.14/global pin, while its distribution-owned `/usr/bin/python3`
+  executes Ansible modules.
+
+The repository environment is declared by `pyproject.toml`, resolved in the
+committed `uv.lock`, and recreated with:
+
+```sh
+uv venv --clear --managed-python --python 3.14 .venv
+uv sync --frozen --managed-python --python 3.14
+```
+
+Debian 13's default `python3` package is Python 3.13, but minimal images are not
+assumed to include it, so bootstrap installs it explicitly. Arch's minimal
+`base` package does not include Python; bootstrap installs the rolling
+distribution's `python` package, currently Python 3.14. The distribution
+`ansible` package is never installed. Inventory selects `/usr/bin/python3` for
+Linux modules and Ansible's uv-tool Python for the local Mac.
+
+See the [detailed bootstrap flow](docs/bootstrap-python-flow.md) and
+[Python, Ansible, and uv ownership decision](docs/decisions/0003-python-ansible-uv-bootstrap.md).
+
+Node 24, Go, and Rust are managed exclusively by Ansible through each user’s
+global `mise` configuration (`~/.config/mise/config.toml`). Workstation and
+execution-node profiles also install Codex CLI and OpenCode; the execution-node
+profile runs T3 Code headlessly behind Tailscale Serve.
+
+Deployment form is selected per service; there is no VM layer without a
+specific isolation requirement. T3 Code runs bare metal on the always-on
+ThinkCentre, while databases are planned as Docker containers on the ThinkPad
+with explicit persistent paths and backups. Project source on the ThinkCentre
+must be committed and pushed to GitHub at frequent checkpoints so the execution
+node remains rebuildable. See
+[ThinkCentre workspace durability](docs/runbooks/thinkcentre-workspaces.md).
+
+The ThinkPad uses Debian 13's native `docker.io`, `docker-cli`, and
+`docker-compose` packages. Docker's separate APT repository is deliberately not
+configured; it is required only if the host switches to Docker CE packages such
+as `docker-ce` and `docker-ce-cli`.
 
 Package changes are reviewed in `ansible/packages/`: macOS workstations use the
 tracked `macos/Brewfile`, while the Linux manifest is applied only to the
 ThinkPad infrastructure host and ThinkCentre execution node. Raspberry Pi
-packages remain owned by their purpose-specific roles.
+packages remain owned by their purpose-specific roles. Initial bootstrap owns
+only the packages needed before Ansible can run. Tailscale and firewall
+packages are installed by the roles that configure them; Stow belongs to the
+dotfiles flow (the Linux dotfiles role or the macOS Brewfile).
 
-Use `make check PLAYBOOK=... LIMIT=host` before `make apply`. Password SSH remains enabled until both recovery flags are explicitly true. Router/DHCP changes, experimental Pi 2 admission, destructive storage, and K3s reboot testing are intentionally opt-in. Docker group membership is root-equivalent. See [DNS runbook](docs/runbooks/dns.md) and [K3s recovery](docs/runbooks/k3s-recovery.md).
+Both Raspberry Pi 1 A+ boards are confirmed to have 256 MB RAM, so they remain
+outside managed inventory and cannot run the supported Pi-hole role. The
+Raspberry Pi 2 is the single dedicated bare-metal Pi-hole node and is not a K3s
+worker. Add a second supported resolver later before advertising two independent
+addresses through DHCP; there is no floating VIP or Pi-hole database
+replication. Arch Linux does not include Docker by default, so the
+execution-node role installs and enables it explicitly. See
+[edge-node architecture decision](docs/decisions/0002-edge-node-architecture.md).
+
+The remaining operator choices are consolidated in
+[Open homelab decisions](docs/decisions/open-decisions.md).
+
+Use `make check PLAYBOOK=... LIMIT=host` before `make apply`. Password SSH remains enabled until both recovery flags are explicitly true. Router/DHCP changes, destructive storage, and K3s reboot testing are intentionally opt-in. Rootful Docker and root-equivalent `docker` group access are accepted for the trusted ThinkCentre execution account. See [DNS runbook](docs/runbooks/dns.md) and [K3s recovery](docs/runbooks/k3s-recovery.md).

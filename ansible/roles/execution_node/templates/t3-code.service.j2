@@ -1,0 +1,19 @@
+[Unit]
+Description=T3 Code headless server
+After=network-online.target tailscaled.service
+Wants=network-online.target
+Requires=tailscaled.service
+
+[Service]
+Type=simple
+User={{ execution_node_user }}
+Group={{ execution_node_user }}
+WorkingDirectory=/home/{{ execution_node_user }}/src
+Environment=HOME=/home/{{ execution_node_user }}
+Environment=T3CODE_HOME=/home/{{ execution_node_user }}/.local/share/t3code
+ExecStart=/usr/bin/mise exec node@{{ mise_node_version }} -- t3 serve --host {{ t3_code_host }} --port {{ t3_code_port }} --tailscale-serve --tailscale-serve-port {{ t3_code_tailscale_serve_port }}
+Restart=on-failure
+RestartSec=5s
+
+[Install]
+WantedBy=multi-user.target

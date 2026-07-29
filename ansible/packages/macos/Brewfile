@@ -5,4 +5,3 @@ brew "starship"
 brew "stow"
 
 cask "ghostty"
-cask "tailscale-app"

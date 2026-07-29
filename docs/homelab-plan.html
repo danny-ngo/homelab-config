@@ -183,13 +183,13 @@
 <body>
   <main class="shell">
     <header>
-      <p class="eyebrow">Planning baseline · reviewed 15 July 2026</p>
+      <p class="eyebrow">Planning baseline · reviewed 28 July 2026</p>
       <h1>Full Homelab Plan</h1>
-      <p class="lede">A staged path from an empty automation scaffold to a recoverable eight-device homelab: three Tailscale-connected computers, a mixed-architecture K3s cluster, a bare-metal DNS pair, and an explicit bridge to the separate dotfiles repository.</p>
+      <p class="lede">A staged path from an empty automation scaffold to a recoverable eight-device homelab: three Tailscale-connected computers, a mixed-architecture K3s cluster, a dedicated Pi 2 DNS node, and an explicit bridge to the separate dotfiles repository.</p>
       <div class="status-line" aria-label="Plan legend">
         <span class="badge tailnet">Tailscale</span>
         <span class="badge">LAN managed</span>
-        <span class="badge conditional">Conditional admission</span>
+        <span class="badge conditional">Optional project</span>
         <span class="badge">Bare-metal service</span>
       </div>
     </header>
@@ -198,7 +198,7 @@
       <div class="stat"><span>Fleet</span><strong>8</strong><span>managed devices</span></div>
       <div class="stat"><span>Tailnet</span><strong>3</strong><span>primary computers</span></div>
       <div class="stat"><span>K3s baseline</span><strong>3</strong><span>1 server + 2 workers</span></div>
-      <div class="stat"><span>DNS</span><strong>2</strong><span>bare-metal Pi-holes</span></div>
+      <div class="stat"><span>DNS</span><strong>1</strong><span>Pi 2 selected; second host pending</span></div>
     </section>
 
     <nav class="tabs" role="tablist" aria-label="Plan views">
@@ -231,21 +231,21 @@
           <div class="nodes">
             <button class="node baseline" data-node="rpi3a" aria-pressed="false"><strong>Pi 3 A</strong><span>supported K3s worker</span></button>
             <button class="node baseline" data-node="rpi3b" aria-pressed="false"><strong>Pi 3 B</strong><span>supported K3s worker</span></button>
-            <button class="node conditional" data-node="rpi2" aria-pressed="false"><strong>Pi 2</strong><span>experimental K3s worker</span></button>
           </div>
         </div>
         <div class="tier">
           <div class="tier-name">Network edge</div>
           <div class="nodes">
-            <button class="node dns" data-node="pihole1" aria-pressed="false"><strong>Pi-hole 1</strong><span>bare-metal DNS peer</span></button>
-            <button class="node dns" data-node="pihole2" aria-pressed="false"><strong>Pi-hole 2</strong><span>bare-metal DNS peer</span></button>
+            <button class="node dns" data-node="rpi2" aria-pressed="false"><strong>Pi 2</strong><span>dedicated Pi-hole</span></button>
+            <button class="node conditional" data-node="pi1a" aria-pressed="false"><strong>Pi 1 A+</strong><span>256 MB · optional project</span></button>
+            <button class="node conditional" data-node="pi1b" aria-pressed="false"><strong>Pi 1 A+</strong><span>256 MB · optional project</span></button>
           </div>
         </div>
       </div>
       <div class="detail" aria-live="polite">
         <div><span class="label">Selected</span><h3 id="node-name">MacBook Pro</h3><p id="node-role">Operator workstation and initial bootstrap origin.</p></div>
-        <div><span class="label">Access</span><p id="node-access">LAN + Tailscale; administers the two primary Linux hosts remotely.</p></div>
-        <div><span class="label">Automation boundary</span><p class="secondary" id="node-automation">Local bootstrap plus explicit dotfiles profile; no homelab services.</p></div>
+        <div><span class="label">Access</span><p id="node-access">LAN + Tailscale; applies Ansible profiles to every managed node.</p></div>
+        <div><span class="label">Automation boundary</span><p class="secondary" id="node-automation">Fresh-machine bootstrap, Ansible controller, and explicit workstation profile; no homelab services.</p></div>
       </div>
     </section>
 
@@ -256,7 +256,7 @@
           <button class="phase" data-phase="0" aria-pressed="true"><span class="phase-num">0</span><span>Discover<small>facts and decisions</small></span></button>
           <button class="phase" data-phase="1" aria-pressed="false"><span class="phase-num">1</span><span>Foundation<small>inventory and base roles</small></span></button>
           <button class="phase" data-phase="2" aria-pressed="false"><span class="phase-num">2</span><span>Primary computers<small>Tailscale + execution</small></span></button>
-          <button class="phase" data-phase="3" aria-pressed="false"><span class="phase-num">3</span><span>Resilient DNS<small>Pi-hole pair</small></span></button>
+          <button class="phase" data-phase="3" aria-pressed="false"><span class="phase-num">3</span><span>Resilient DNS<small>Pi 2 + second host later</small></span></button>
           <button class="phase" data-phase="4" aria-pressed="false"><span class="phase-num">4</span><span>K3s cluster<small>server + Pi 3 workers</small></span></button>
           <button class="phase" data-phase="5" aria-pressed="false"><span class="phase-num">5</span><span>Data platform<small>databases + pipelines</small></span></button>
           <button class="phase" data-phase="6" aria-pressed="false"><span class="phase-num">6</span><span>Operations<small>health + recovery</small></span></button>
@@ -276,15 +276,17 @@
         <table>
           <thead><tr><th>Concern</th><th>Owner</th><th>Primary target</th><th>Recovery rule</th></tr></thead>
           <tbody>
-            <tr><td>OS, users, packages, SSH, storage</td><td>This repo · Ansible</td><td>All applicable hosts</td><td>Reapply from MacBook or ThinkPad</td></tr>
+            <tr><td>OS, users, packages, SSH, storage</td><td>This repo · Ansible</td><td>All applicable hosts</td><td>Reapply from the MacBook controller</td></tr>
+            <tr><td>Linux bootstrap runtime</td><td>APT/Pacman + uv</td><td>Every managed node</td><td>Global uv executable, per-user Python 3.14 pin, system Python for Ansible modules</td></tr>
+            <tr><td>Ansible controller tooling</td><td>Homebrew + uv tool</td><td>MacBook controller</td><td>Recreate global Ansible and the locked Python 3.14 project environment</td></tr>
             <tr><td>Shell, editor, user CLI preferences</td><td>External dotfiles repo</td><td>MacBook, ThinkPad, ThinkCentre</td><td>Pinned checkout via explicit dotfiles playbook</td></tr>
             <tr><td>Remote access</td><td>This repo + tailnet policy</td><td>Three primary computers</td><td>LAN recovery remains available</td></tr>
-            <tr><td>DNS filtering</td><td>This repo · bare-metal Pi-hole role</td><td>Two Pi 1 devices</td><td>Either resolver works alone; emergency DNS documented</td></tr>
-            <tr><td>K3s lifecycle</td><td>This repo · Ansible</td><td>ThinkPad + two Pi 3s</td><td>Pi 2 never blocks baseline recovery</td></tr>
+            <tr><td>DNS filtering</td><td>This repo · bare-metal Pi-hole role</td><td>Dedicated Pi 2; second supported host later</td><td>Keep existing router DNS until direct validation passes</td></tr>
+            <tr><td>K3s lifecycle</td><td>This repo · Ansible</td><td>ThinkPad + two Pi 3s</td><td>Pi 2 is permanently excluded</td></tr>
             <tr><td>In-cluster applications</td><td>Kubernetes manifests / Helm</td><td>Compatible K3s nodes</td><td>Multi-arch images and explicit scheduling</td></tr>
-            <tr><td>Databases and orchestration state</td><td>ThinkPad host roles</td><td>Dedicated persistent paths</td><td>Restore must pass an application-level query</td></tr>
-            <tr><td>Agentic development</td><td>Execution-node role + dotfiles</td><td>ThinkCentre</td><td>Rebuildable without impacting infrastructure services</td></tr>
-            <tr><td>Secrets</td><td>Encrypted/external source</td><td>Runtime only</td><td>No plaintext in Git or generated docs</td></tr>
+            <tr><td>Databases and orchestration state</td><td>Docker on ThinkPad</td><td>Named persistent paths outside container layers</td><td>Restore must pass an application-level query</td></tr>
+            <tr><td>Agentic development</td><td>Execution-node role + dotfiles</td><td>Always-on ThinkCentre · bare metal</td><td>Project source is frequently committed and pushed to GitHub</td></tr>
+            <tr><td>Secrets</td><td>Ansible Vault for v1</td><td>Runtime only</td><td>Vault password and recovery copy remain outside Git</td></tr>
           </tbody>
         </table>
       </div>
@@ -293,26 +295,17 @@
     <section id="panel-gates" role="tabpanel" aria-labelledby="tab-gates" hidden>
       <div class="section-head"><div><h2>Acceptance gates</h2><p>Protocol checks, idempotency, reboot persistence, and restore tests define success—not merely installed packages.</p></div></div>
       <div class="gate-grid">
-        <article class="gate-card"><h3>Primary computers</h3><ul><li>MacBook reaches both Linux computers over Tailscale.</li><li>ThinkPad reaches every Linux node over LAN.</li><li>ThinkCentre completes a remote clone/build/test workflow.</li><li>Dotfiles apply from a pinned external revision.</li></ul></article>
-        <article class="gate-card"><h3>DNS pair</h3><ul><li>Either Pi-hole resolves independently.</li><li>Shared policy is declarative and consistent.</li><li>One-node failure does not interrupt dual-DNS clients.</li><li>A clean node rebuild restores service.</li></ul></article>
-        <article class="gate-card"><h3>K3s baseline</h3><ul><li>ThinkPad and both Pi 3 workers return Ready after reboot.</li><li>Second provisioning run has no unexplained changes.</li><li>Smoke workload uses a verified multi-arch image.</li><li>Pi 2 is separately recorded as admitted or excluded.</li></ul></article>
+        <article class="gate-card"><h3>Primary computers</h3><ul><li>MacBook reaches every managed node over LAN or Tailscale.</li><li>Each Linux node passes its prerequisite-only bootstrap.</li><li>ThinkCentre completes a remote clone/build/test workflow.</li><li>Dotfiles apply from a pinned external revision.</li></ul></article>
+        <article class="gate-card"><h3>DNS</h3><ul><li>The dedicated Pi 2 passes direct UDP and TCP queries.</li><li>A second supported host is selected before claiming redundancy.</li><li>One-node failure does not interrupt future dual-DNS clients.</li><li>A clean node rebuild restores service.</li></ul></article>
+        <article class="gate-card"><h3>K3s baseline</h3><ul><li>ThinkPad and both Pi 3 workers return Ready after reboot.</li><li>Second provisioning run has no unexplained changes.</li><li>Smoke workload uses a verified multi-arch image.</li><li>Pi 2 remains absent from all worker groups.</li></ul></article>
         <article class="gate-card"><h3>State and recovery</h3><ul><li>Databases and pipeline metadata use named persistent paths.</li><li>Backups restore into a clean location.</li><li>Health checks exercise the real service protocol.</li><li>Recovery instructions remain available when K3s is down.</li></ul></article>
       </div>
       <div class="decisions">
         <h3>Phase 0 decisions still required</h3>
-        <ol>
-          <li>Exact OS images, RAM, disks, hostnames, and rebuild media.</li>
-          <li>LAN reservations, local domain, router/DHCP control, and emergency DNS.</li>
-          <li>Dotfiles URL, install contract, profiles, and pinned revision.</li>
-          <li>Database products and pipeline orchestrator.</li>
-          <li>Native packages versus rootless containers for stateful services.</li>
-          <li>Backup target, encryption, retention, and off-machine copy.</li>
-          <li>Secret management mechanism.</li>
-          <li>Tailscale ACLs, tags, SSH choice, and key expiry.</li>
-          <li>ThinkCentre workspace isolation and concurrency limits.</li>
-          <li>K3s storage, ingress, bundled components, and GitOps timing.</li>
-          <li>Monitoring stack and notification destination.</li>
-        </ol>
+        <p>Remaining hardware and network facts, the second DNS host and DNS
+        policy, access and configuration promotion, stateful service
+        durability, and observability remain open. The single canonical backlog
+        is <a href="decisions/open-decisions.md">Open homelab decisions</a>.</p>
       </div>
     </section>
 
@@ -324,22 +317,22 @@
 
   <script>
     const nodes = {
-      macbook: { name: "MacBook Pro", role: "Operator workstation and initial bootstrap origin.", access: "LAN + Tailscale; administers the two primary Linux hosts remotely.", automation: "Local bootstrap plus explicit dotfiles profile; no homelab services." },
-      thinkpad: { name: "ThinkPad · Debian", role: "Persistent infrastructure host, K3s server, database and pipeline host.", access: "LAN + Tailscale; can run Ansible but is not the mandatory controller.", automation: "Critical state is named, backed up, and recoverable without K3s." },
-      thinkcentre: { name: "ThinkCentre Tiny · CachyOS", role: "Headless remote execution node for T3 Code, Codex CLI, builds, and tests.", access: "LAN + Tailscale; remote development from the MacBook.", automation: "Rebuildable workspaces, bounded caches, explicit dotfiles execution profile; never a K3s node." },
+      macbook: { name: "MacBook Pro", role: "Operator workstation and sole Ansible controller.", access: "LAN + Tailscale; applies profiles to every managed node.", automation: "Fresh-machine bootstrap, uv-tool Ansible, and explicit workstation profile; no homelab services." },
+      thinkpad: { name: "ThinkPad · Debian", role: "Persistent infrastructure host, K3s server, database and pipeline host.", access: "LAN + Tailscale; managed from the MacBook controller.", automation: "Initial bootstrap prepares uv and Python; critical state is named, backed up, and recoverable without K3s." },
+      thinkcentre: { name: "ThinkCentre Tiny · CachyOS", role: "Always-on bare-metal remote execution node for T3 Code, Codex CLI, builds, and tests.", access: "LAN + Tailscale; remote development from the MacBook.", automation: "Project source is frequently committed and pushed to GitHub; bounded caches and explicit dotfiles profile; never a K3s node." },
       rpi3a: { name: "Raspberry Pi 3 A", role: "Supported 64-bit ARM K3s worker for small services.", access: "LAN SSH from the ThinkPad; K3s traffic stays on LAN.", automation: "K3s prerequisites and agent role with architecture-aware scheduling." },
       rpi3b: { name: "Raspberry Pi 3 B", role: "Supported 64-bit ARM K3s worker for small services.", access: "LAN SSH from the ThinkPad; K3s traffic stays on LAN.", automation: "K3s prerequisites and agent role with architecture-aware scheduling." },
-      rpi2: { name: "Raspberry Pi 2", role: "Experimental 32-bit ARM K3s worker; excluded from baseline success.", access: "LAN only; admitted through an explicit opt-in playbook path.", automation: "Requires OS, cgroup, armhf release, reboot, Ready-state, image, and 72-hour soak gates." },
-      pihole1: { name: "Pi-hole 1 · Raspberry Pi 1", role: "Bare-metal DNS resolver peer; never joins K3s.", access: "Static LAN address; administered from the ThinkPad over LAN.", automation: "Shared declarative DNS policy plus identity-specific host variables and restore test." },
-      pihole2: { name: "Pi-hole 2 · Raspberry Pi 1", role: "Bare-metal DNS resolver peer; never joins K3s.", access: "Static LAN address; administered from the ThinkPad over LAN.", automation: "Provisioned after the first resolver validates; either node must work alone." }
+      rpi2: { name: "Raspberry Pi 2", role: "Single dedicated bare-metal Pi-hole resolver; permanently excluded from K3s.", access: "LAN only with a stable reservation and wired interface.", automation: "Managed by the Pi-hole role; add a second supported resolver later for redundancy." },
+      pi1a: { name: "Raspberry Pi 1 A+ · 256 MB", role: "Optional noncritical GPIO sensor, status display, or ARMv6 lab target.", access: "Outside managed inventory; USB networking is project-specific.", automation: "Requires a documented ARMv6/Python exception if brought under automation." },
+      pi1b: { name: "Raspberry Pi 1 A+ · 256 MB", role: "Optional noncritical GPIO sensor, status display, or ARMv6 lab target.", access: "Outside managed inventory; USB networking is project-specific.", automation: "Requires a documented ARMv6/Python exception if brought under automation." }
     };
 
     const phases = {
-      0: { name: "Discovery and decisions", outcomes: ["Hardware, OS, architecture, disk and power facts", "LAN names, reservations and recovery access", "Dotfiles integration contract and secret boundary", "Database, pipeline, backup and monitoring choices"], gate: "Every host has a documented recovery path; no planned role depends on an unknown storage or secret location." },
-      1: { name: "Automation foundation", outcomes: ["Pinned Ansible collections and inventory", "Base, storage and validation roles", "Bootstrap, Make targets, lint and syntax checks", "Secret placeholders and operator README"], gate: "Inventory graph and syntax checks pass; a second base-role run has no unexpected changes." },
-      2: { name: "Primary computers", outcomes: ["ThinkPad becomes the persistent infrastructure host", "Tailscale on MacBook, ThinkPad and ThinkCentre", "Explicit external-dotfiles playbook", "Headless execution node and remote dev smoke test"], gate: "Remote access works as designed; authorized operator machines reach the Linux fleet; ThinkCentre completes a non-privileged clone/build/test workflow." },
-      3: { name: "Resilient DNS", outcomes: ["First Pi-hole, then second, staged safely", "Shared policy with per-node identity", "Router/DHCP activation and rollback runbook", "Independent health and restore checks"], gate: "Either resolver works alone, dual-DNS clients survive one-node loss, and a rebuilt node restores from code plus protected configuration." },
-      4: { name: "K3s cluster", outcomes: ["Pinned server on ThinkPad", "Two supported Pi 3 workers", "Secure token discovery and kubeconfig handling", "Separate opt-in Pi 2 admission path"], gate: "Baseline nodes return Ready after reboot, provisioning is idempotent, and a verified multi-arch workload lands only on compatible nodes." },
+      0: { name: "Discovery and decisions", outcomes: ["Hardware, OS, architecture, disk and power facts", "LAN names, reservations and recovery access", "Dotfiles revision promotion and tailnet policy", "Database, pipeline, backup and monitoring choices"], gate: "Every host has a documented recovery path; no planned role depends on an unknown storage or secret location." },
+      1: { name: "Automation foundation", outcomes: ["MacBook uv-tool Ansible and locked Python 3.14 development environment", "Global uv plus Python 3.14 pin on managed nodes", "Pinned Ansible collections and inventory", "Bootstrap, Make targets, lint and syntax checks"], gate: "Every node passes its correct bootstrap path; inventory graph and syntax checks pass; a second base-role run has no unexpected changes." },
+      2: { name: "Primary computers", outcomes: ["ThinkPad becomes the persistent infrastructure host", "Tailscale on MacBook, ThinkPad and ThinkCentre", "Always-on bare-metal T3 Code execution", "Frequent GitHub checkpoints for project source"], gate: "Remote access works as designed; ThinkCentre completes a clone/build/test workflow; active project branches are pushed and recoverable from GitHub." },
+      3: { name: "Resilient DNS", outcomes: ["Dedicated Pi 2 deployed and validated first", "Second supported resolver selected and staged later", "Router/DHCP activation and rollback runbook", "Independent health and restore checks"], gate: "The Pi 2 resolves directly; after a second host is added, either resolver works alone and a rebuilt node restores from code plus protected configuration." },
+      4: { name: "K3s cluster", outcomes: ["Pinned server on ThinkPad", "Two supported Pi 3 workers", "Secure token discovery and kubeconfig handling", "Pi 2 permanently excluded from workers"], gate: "Baseline nodes return Ready after reboot, provisioning is idempotent, and a verified multi-arch workload lands only on compatible nodes." },
       5: { name: "Data and pipeline platform", outcomes: ["Chosen databases and orchestrator", "Named data paths, resource limits and health checks", "Credentials from the selected secret system", "Backup and clean-location restore procedure"], gate: "Each stateful service restores successfully and passes an application-level query or test run." },
       6: { name: "Operations and recovery", outcomes: ["Fleet-wide read-only validation", "Host, DNS, disk, backup, tailnet and cluster visibility", "Patch and pinned-version upgrade runbooks", "Recovery order and periodic drills"], gate: "A failed component can be identified and recovered using documentation and backups that do not depend on that component." }
     };

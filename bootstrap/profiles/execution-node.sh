@@ -1,3 +1,5 @@
 #!/usr/bin/env bash
 
-bootstrap_run_playbook ansible/playbooks/execution-node.yml execution_nodes
+# Apply the baseline followed by every stable purpose-specific play in which
+# the selected execution node participates.
+bootstrap_run_playbook ansible/playbooks/site.yml execution_nodes

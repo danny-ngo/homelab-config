@@ -3,4 +3,4 @@
   serial: 1
   any_errors_fatal: true
   gather_facts: true
-  roles: [common, pihole, firewall]
+  roles: [pihole]

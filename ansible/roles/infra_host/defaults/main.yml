@@ -1,2 +1,6 @@
 infra_host_root: /srv/infra
+infra_host_container_root: "{{ infra_host_root }}/containers"
+infra_host_data_root: "{{ infra_host_root }}/data"
 infra_host_packages: []
+infra_host_docker_log_max_size: 10m
+infra_host_docker_log_max_files: '3'

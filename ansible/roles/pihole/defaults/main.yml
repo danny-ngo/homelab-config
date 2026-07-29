@@ -1,3 +1,11 @@
 pihole_version: v6.4.3
 pihole_minimum_memory_mb: 512
 pihole_local_records: []
+pihole_install_dir: /usr/local/src/pi-hole
+pihole_query_logging: false
+pihole_dns_cache_size: 5000
+pihole_database_retention_days: 2
+pihole_webserver_threads: 4
+pihole_webserver_max_sessions: 4
+pihole_webserver_history_seconds: 21600
+pihole_ntp_enabled: false

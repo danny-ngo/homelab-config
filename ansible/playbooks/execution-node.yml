@@ -3,4 +3,4 @@
   gather_facts: true
   vars_files:
     - ../packages/linux/packages.yml
-  roles: [common, execution_node, tailscale, dotfiles]
+  roles: [tailscale, execution_node, dotfiles]

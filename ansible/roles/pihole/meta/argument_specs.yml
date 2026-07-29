@@ -4,3 +4,14 @@ argument_specs:
       pihole_interface: {type: str, required: true}
       pihole_upstream_resolvers: {type: list, elements: str, required: true}
       vault_pihole_web_password_hashes: {type: dict, required: true}
+      pihole_version: {type: str}
+      pihole_minimum_memory_mb: {type: int}
+      pihole_local_records: {type: list, elements: str}
+      pihole_install_dir: {type: path}
+      pihole_query_logging: {type: bool}
+      pihole_dns_cache_size: {type: int}
+      pihole_database_retention_days: {type: int}
+      pihole_webserver_threads: {type: int}
+      pihole_webserver_max_sessions: {type: int}
+      pihole_webserver_history_seconds: {type: int}
+      pihole_ntp_enabled: {type: bool}

@@ -1,2 +1,6 @@
 tailscale_accept_dns: false
 tailscale_ssh: false
+tailscale_apt_keyring_url: >-
+  https://pkgs.tailscale.com/stable/debian/{{ ansible_distribution_release }}.noarmor.gpg
+tailscale_apt_repository_url: >-
+  https://pkgs.tailscale.com/stable/debian/{{ ansible_distribution_release }}.tailscale-keyring.list

@@ -1,8 +1,17 @@
-codex_version: 0.144.4
+codex_version: 0.144.5
+opencode_version: 1.18.3
+t3_code_version: 0.0.28
 execution_node_user: "{{ ansible_user }}"
 execution_node_packages: []
+execution_node_developer_cli_packages:
+  - "@openai/codex@{{ codex_version }}"
+  - "opencode-ai@{{ opencode_version }}"
+  - "t3@{{ t3_code_version }}"
 mise_node_version: '24'
 mise_go_version: '1.24'
 mise_rust_version: stable
 docker_log_max_size: 10m
 docker_log_max_files: '3'
+t3_code_host: 127.0.0.1
+t3_code_port: 3000
+t3_code_tailscale_serve_port: 443

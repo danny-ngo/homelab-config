@@ -1,10 +1,38 @@
-- name: Inspect the persistent infrastructure root
+- name: Inspect the persistent infrastructure paths
   ansible.builtin.stat:
-    path: "{{ infra_host_root }}"
-  register: infra_host_root_status
+    path: "{{ item }}"
+  loop:
+    - "{{ infra_host_root }}"
+    - "{{ infra_host_container_root }}"
+    - "{{ infra_host_data_root }}"
+  register: infra_host_path_status
 
-- name: Verify the persistent infrastructure root
+- name: Verify the persistent infrastructure paths
   ansible.builtin.assert:
     that:
-      - infra_host_root_status.stat.isdir | default(false)
-    fail_msg: "The infrastructure root {{ infra_host_root }} is not a directory."
+      - item.stat.isdir | default(false)
+    fail_msg: "The infrastructure path {{ item.item }} is not a directory."
+  loop: "{{ infra_host_path_status.results }}"
+  loop_control:
+    label: "{{ item.item }}"
+
+- name: Verify the infrastructure Docker client is available
+  ansible.builtin.command: docker --version
+  changed_when: false
+
+- name: Verify the infrastructure Docker client can reach the engine
+  ansible.builtin.command: docker info
+  changed_when: false
+
+- name: Verify infrastructure Docker Compose is available
+  ansible.builtin.command: docker compose version
+  changed_when: false
+
+- name: Read infrastructure services
+  ansible.builtin.service_facts:
+
+- name: Verify infrastructure Docker is running
+  ansible.builtin.assert:
+    that:
+      - ansible_facts.services['docker.service'].status == 'enabled'
+      - ansible_facts.services['docker.service'].state == 'running'

@@ -1,5 +1,17 @@
 - name: Inspect the Pi-hole configuration
   ansible.builtin.stat: {path: /etc/pihole/pihole.toml}
   register: pihole_config
-- name: Verify the Pi-hole configuration exists
-  ansible.builtin.assert: {that: [pihole_config.stat.exists], quiet: true}
+- name: Inspect the Pi-hole CLI
+  ansible.builtin.stat: {path: /usr/local/bin/pihole}
+  register: pihole_cli
+- name: Read Pi-hole service state
+  ansible.builtin.service_facts:
+- name: Verify the Pi-hole installation is secured and running
+  ansible.builtin.assert:
+    that:
+      - pihole_cli.stat.exists
+      - pihole_config.stat.exists
+      - pihole_config.stat.mode == '0600'
+      - ansible_facts.services['pihole-FTL.service'].status == 'enabled'
+      - ansible_facts.services['pihole-FTL.service'].state == 'running'
+    quiet: true

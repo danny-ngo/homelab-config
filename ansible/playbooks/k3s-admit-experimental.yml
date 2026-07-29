@@ -1,9 +1,0 @@
-- name: Gate experimental Pi 2 admission
-  hosts: k3s_workers_experimental
-  gather_facts: true
-  pre_tasks:
-    - name: Require deliberate experimental-node admission
-      ansible.builtin.assert:
-        that: [k3s_experimental_worker_enabled | bool, ansible_limit == inventory_hostname]
-        fail_msg: "Set k3s_experimental_worker_enabled=true and limit exactly one experimental host."
-  roles: [k3s_prereqs, k3s_agent]

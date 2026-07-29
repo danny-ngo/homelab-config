@@ -61,3 +61,14 @@
   environment:
     HOME: "/Users/{{ workstation_user }}"
   changed_when: false
+- name: Install workstation developer CLIs
+  ansible.builtin.command:
+    argv: >-
+      {{
+        ['mise', 'exec', 'node@' ~ mise_node_version, '--', 'npm', 'install', '--global']
+        + workstation_developer_cli_packages
+      }}
+  become: false
+  environment:
+    HOME: "/Users/{{ workstation_user }}"
+  changed_when: false

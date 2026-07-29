@@ -12,6 +12,7 @@ NETWORK = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(NETWORK)
 
 cidr_overlaps = NETWORK.cidr_overlaps
+cidr_prefix = NETWORK.cidr_prefix
 cidr_valid = NETWORK.cidr_valid
 
 
@@ -23,3 +24,7 @@ class NetworkTests(unittest.TestCase):
     def test_validation(self):
         self.assertTrue(cidr_valid("2001:db8::/32"))
         self.assertFalse(cidr_valid("not-a-network"))
+
+    def test_prefix(self):
+        self.assertEqual(cidr_prefix("192.0.2.0/24"), 24)
+        self.assertEqual(cidr_prefix("2001:db8::/48"), 48)

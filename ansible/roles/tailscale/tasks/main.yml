@@ -1,6 +1,43 @@
 - name: Install the Tailscale app on macOS
   community.general.homebrew_cask: {name: tailscale-app, state: present}
   when: ansible_os_family == 'Darwin'
+
+- name: Ensure the Debian package keyring directory exists
+  ansible.builtin.file:
+    path: /usr/share/keyrings
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  when: ansible_os_family == 'Debian'
+
+- name: Install the Tailscale Debian repository key
+  ansible.builtin.get_url:
+    url: "{{ tailscale_apt_keyring_url }}"
+    dest: /usr/share/keyrings/tailscale-archive-keyring.gpg
+    owner: root
+    group: root
+    mode: "0644"
+  register: tailscale_apt_keyring
+  when: ansible_os_family == 'Debian'
+
+- name: Install the Tailscale Debian repository definition
+  ansible.builtin.get_url:
+    url: "{{ tailscale_apt_repository_url }}"
+    dest: /etc/apt/sources.list.d/tailscale.list
+    owner: root
+    group: root
+    mode: "0644"
+  register: tailscale_apt_repository
+  when: ansible_os_family == 'Debian'
+
+- name: Refresh APT after changing the Tailscale repository
+  ansible.builtin.apt:
+    update_cache: true
+  when:
+    - ansible_os_family == 'Debian'
+    - tailscale_apt_keyring.changed or tailscale_apt_repository.changed
+
 - name: Install Tailscale on Linux
   ansible.builtin.package: {name: tailscale, state: present}
   when: ansible_os_family != 'Darwin'
@@ -9,7 +46,12 @@
   when: ansible_os_family != 'Darwin'
 - name: Apply complete Linux Tailscale preferences
   ansible.builtin.command:
-    argv: [tailscale, up, --accept-dns=false, --ssh=false, "--advertise-tags={{ tailscale_tag }}"]
+    argv:
+      - tailscale
+      - up
+      - "--accept-dns={{ tailscale_accept_dns | bool | ternary('true', 'false') }}"
+      - "--ssh={{ tailscale_ssh | bool | ternary('true', 'false') }}"
+      - "--advertise-tags={{ tailscale_tag }}"
   no_log: true
   when: ansible_os_family != 'Darwin' and tailscale_tag is defined
   changed_when: false

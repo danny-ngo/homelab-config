@@ -1,10 +1,43 @@
+- name: Read Raspberry Pi ARM memory allocation
+  ansible.builtin.command:
+    argv: [vcgencmd, get_mem, arm]
+  register: pihole_arm_memory
+  changed_when: false
+  check_mode: false
+  when: ansible_architecture == 'armv6l'
+
+- name: Read Raspberry Pi GPU memory allocation
+  ansible.builtin.command:
+    argv: [vcgencmd, get_mem, gpu]
+  register: pihole_gpu_memory
+  changed_when: false
+  check_mode: false
+  when: ansible_architecture == 'armv6l'
+
+- name: Calculate installed Raspberry Pi memory
+  ansible.builtin.set_fact:
+    pihole_detected_memory_mb: >-
+      {{
+        (pihole_arm_memory.stdout | regex_search('[0-9]+') | int)
+        + (pihole_gpu_memory.stdout | regex_search('[0-9]+') | int)
+      }}
+  when: ansible_architecture == 'armv6l'
+
 - name: Verify Pi-hole platform prerequisites
   ansible.builtin.assert:
     that:
-      - ansible_memtotal_mb >= pihole_minimum_memory_mb
+      - >-
+        pihole_detected_memory_mb
+        | default(ansible_memtotal_mb, true)
+        | int >= pihole_minimum_memory_mb
       - ansible_os_family == 'Debian'
       - ansible_architecture in ['armv6l', 'armv7l', 'aarch64', 'x86_64']
-    fail_msg: Pi-hole requires a maintained supported OS and at least 512 MB RAM.
+      - pihole_interface in ansible_interfaces
+      - pihole_upstream_resolvers | length > 0
+    fail_msg: >-
+      Pi-hole requires a maintained Debian-family OS, a supported architecture,
+      at least {{ pihole_minimum_memory_mb }} MB installed RAM, the configured
+      network interface, and at least one upstream resolver.
 
 - name: Verify this Pi-hole has a vaulted web password hash
   ansible.builtin.assert:
@@ -19,9 +52,59 @@
 - name: Clone the pinned Pi-hole release
   ansible.builtin.git:
     repo: https://github.com/pi-hole/pi-hole.git
-    dest: /usr/local/src/pi-hole
+    dest: "{{ pihole_install_dir }}"
     version: "{{ pihole_version }}"
     depth: 1
-- name: Render the protected Pi-hole configuration
-  ansible.builtin.template: {src: pihole.toml.j2, dest: /etc/pihole/pihole.toml, mode: '0600'}
+
+- name: Inspect the Pi-hole CLI
+  ansible.builtin.stat:
+    path: /usr/local/bin/pihole
+  register: pihole_cli
+
+- name: Create the Pi-hole configuration directory for first install
+  ansible.builtin.file:
+    path: /etc/pihole
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  when: not pihole_cli.stat.exists
+
+- name: Seed the unattended bare-metal installation
+  ansible.builtin.template:
+    src: setupVars.conf.j2
+    dest: /etc/pihole/setupVars.conf
+    owner: root
+    group: root
+    mode: "0600"
+  when: not pihole_cli.stat.exists
   no_log: true
+
+- name: Install the pinned Pi-hole release on bare metal
+  ansible.builtin.command:
+    argv:
+      - bash
+      - "{{ pihole_install_dir }}/automated install/basic-install.sh"
+      - --unattended
+    creates: /usr/local/bin/pihole
+  environment:
+    DEBIAN_FRONTEND: noninteractive
+  when: not pihole_cli.stat.exists
+
+- name: Render the protected Pi-hole configuration
+  ansible.builtin.template:
+    src: pihole.toml.j2
+    dest: /etc/pihole/pihole.toml
+    owner: pihole
+    group: pihole
+    mode: "0600"
+  when: pihole_cli.stat.exists or not ansible_check_mode
+  no_log: true
+  notify: Restart Pi-hole FTL
+
+- name: Enable and start Pi-hole FTL
+  ansible.builtin.systemd_service:
+    name: pihole-FTL
+    enabled: true
+    state: started
+  when: pihole_cli.stat.exists or not ansible_check_mode
