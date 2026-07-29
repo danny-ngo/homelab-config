@@ -2,5 +2,6 @@ argument_specs:
   main:
     options:
       common_packages: {type: list, elements: str}
+      common_ssh_service_name: {type: str}
       expected_os_family: {type: str, required: true}
       expected_architecture: {type: str, required: true}

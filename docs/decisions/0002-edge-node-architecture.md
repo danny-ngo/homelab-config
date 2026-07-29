@@ -1,7 +1,8 @@
 # 0002: Raspberry Pi DNS and constrained edge nodes
 
-- Status: accepted
+- Status: accepted, with Pi 2 deployment form reopened
 - Date: 2026-07-28
+- Last reviewed: 2026-07-29
 
 ## Decision
 
@@ -20,11 +21,16 @@ both resolver addresses through DHCP option 6. Treat them as independent
 resolvers managed from the same Ansible source of truth, not as a stateful
 Pi-hole cluster.
 
-Dedicate the 1 GB Raspberry Pi 2 Model B to bare-metal Pi-hole on Raspberry Pi
-OS Lite 32-bit. It is the first and currently only selected resolver. It is not
-a K3s worker, and the former experimental admission path is removed. Keep the
-router's current DNS configuration until this node passes direct validation;
-select a second supported resolver later before claiming DNS redundancy.
+Reserve the 1 GB Raspberry Pi 2 Model B for Pi-hole. It is the first and
+currently only selected resolver; do not schedule unrelated workloads on it.
+The existing Ansible implementation deploys Pi-hole on bare-metal Raspberry Pi
+OS Lite 32-bit and therefore keeps the Pi 2 out of the K3s worker group. A
+dedicated K3s-agent topology running only the Pi-hole pod is feasible and is no
+longer rejected on memory grounds, but it needs a separate workload definition
+for networking, persistence, resource limits, and node placement before the
+inventory can safely select it. Keep the router's current DNS configuration
+until the chosen form passes direct validation; select a second supported
+resolver later before claiming DNS redundancy.
 
 Arch Linux does not install Docker as part of its base system. The execution
 node role therefore owns installation and startup of `docker`, `docker-buildx`,
@@ -113,11 +119,18 @@ The official Pi-hole container also has an ARMv6 image, but Docker cannot make
 the exclusion decision.
 
 For future supported hosts, the role uses Pi-hole's official unattended
-bare-metal installer from a pinned Core tag. Resource-oriented settings disable
-the duplicate text query log, retain two days of database history, use a
-5,000-entry cache, cap web/API concurrency, and disable Pi-hole's optional NTP
-client/server. The web interface remains available. Ansible renders the
-authoritative local records, upstreams, interface, and password hash.
+bare-metal installer from a pinned Core tag. The pin makes the reviewed
+installer input reproducible; it does not pin the complete installed stack.
+Pi-hole's installer resolves its Core, Web, and FTL components through upstream
+release channels, and this role deliberately does not run `pihole -up`
+automatically. Review release notes, back up `/etc/pihole`, and perform upgrades
+as a separate maintenance action.
+
+Resource-oriented settings disable the duplicate text query log, retain two
+days of database history, use a 5,000-entry cache, cap web/API concurrency, and
+disable Pi-hole's optional NTP client/server. The web interface remains
+available. Ansible renders the authoritative local records, upstreams,
+interface, and password hash.
 
 Sources:
 
@@ -200,15 +213,85 @@ bootstrap.
 
 ## Raspberry Pi 2 role selection
 
-The memory gate is resolved: both Pi 1 boards have 256 MB, so the Pi 2 is the
-single dedicated Pi-hole node. Its 1 GB RAM satisfies Pi-hole's published
-minimum. Keep it on bare-metal Raspberry Pi OS Lite 32-bit, exclude it from all
-K3s worker groups, and do not install a K3s agent.
+The memory gate is resolved: both Pi 1 boards have 256 MB, so the 1 GB Pi 2 is
+the single dedicated Pi-hole node. Its service role is settled; its deployment
+form is reopened. A K3s worker that runs only Pi-hole is materially different
+from a server or general-purpose worker and meets K3s's published one-core,
+512 MB agent baseline.
 
-The Pi 2 has enough published capacity to run a small K3s agent, but combining
-LAN DNS with cluster workload pressure, drains, reboots, and troubleshooting
-would reduce DNS reliability. The architectural value of the independent DNS
-appliance is greater than the Pi 2's marginal K3s capacity.
+That baseline explicitly excludes workload consumption. Pi-hole also publishes
+a 512 MB minimum, but these values are compatibility floors rather than
+additive reservations. A 1 GB node can work, but it must be measured under
+gravity updates, query bursts, container image extraction, K3s upgrades, and
+restarts. Keep monitoring control planes off the Pi 2 and do not infer spare
+capacity from the fact that it passes each minimum independently.
+
+### Deployment form and monitoring interoperability
+
+The extra RAM above Pi-hole's minimum is operating margin, cache, and recovery
+headroom; it is not by itself a reason to add an orchestration layer. The
+worker-only topology makes K3s reasonable when the lab already values
+Kubernetes-native deployment, resource controls, and centralized workload
+management. Label and taint the node for DNS, add matching placement rules,
+define requests and limits from measured usage, and make persistence and port
+53 exposure explicit. A drain, CNI failure, control-plane dependency, or node
+reboot still becomes a DNS event, so this does not replace a second resolver.
+
+Standalone Docker remains the simplest containerized option on ARMv7. It
+provides an image-based upgrade/rollback unit and direct container visibility
+to Portainer, while avoiding the Kubernetes control-plane and CNI dependency.
+Bare metal remains the smallest operational surface and the only deployment
+form currently implemented in this repository. Choose K3s for cluster-native
+operations, Docker for a single remotely managed container host, or bare metal
+for maximum DNS independence; RAM alone does not select among them.
+
+Monitoring does not require Pi-hole to share the monitor's deployment form:
+
+| Monitor | Bare-metal Pi-hole | Docker Pi-hole | K3s Pi-hole |
+| --- | --- | --- | --- |
+| Uptime Kuma | Preferred compatibility: query the Pi 2 directly with a DNS monitor; optionally add HTTP(S) and ping checks | Same service checks, plus a Docker-container monitor if the Docker API is deliberately exposed | Same service checks; cluster visibility is separate |
+| Pulse | The unified Linux agent is published for ARMv7 and can report the Pi as a standalone machine | Adds Docker/container inventory when the agent has Docker socket access | Supports Kubernetes monitoring through its cluster agents |
+| Portainer | No Pi-hole workload visibility; Portainer is a container/cluster manager, not a DNS availability check | Full container lifecycle visibility through an ARMv7 Agent or Edge Agent | Add the cluster once through the Kubernetes agent; Portainer then sees the Pi-hole workload and its Pi 2 placement |
+
+Use Uptime Kuma on another always-on node for the actual availability signal:
+perform a DNS query through the Pi 2 rather than checking only ICMP or TCP port
+53. A web-interface check is useful but secondary because the dashboard can be
+healthy while resolution is broken. Pulse is a compatible optional host
+telemetry layer because its current releases include an ARMv7 agent. Portainer
+adds value only if Pi-hole is containerized and still does not replace an
+end-to-end DNS query.
+
+For standalone Docker, prefer Portainer's Edge Agent when the Portainer server
+can expose its tunnel endpoint; it does not require an inbound agent port on the
+Pi 2. The standard Agent is also available for ARMv7 but requires the server to
+reach port 9001 on the Pi. For K3s, do not install Docker merely for Portainer:
+K3s uses containerd. Add the Kubernetes environment once, not each node. The
+Portainer cluster agent can run on an x86_64 or ARM64 cluster node and manage
+the Pi 2 workload through the Kubernetes API.
+
+Portainer CE 2.39 publishes compatibility for Kubernetes 1.32 through 1.34.
+The repository therefore pins K3s `v1.34.9+k3s1` rather than 1.35 while this
+integration is required. Portainer publishes ARMv7 images, although its primary
+tested architecture matrix lists ARM64 and x86_64; validate the selected agent
+tag on the Pi before relying on standalone Docker management.
+
+Do not expose an unauthenticated Docker TCP socket merely to gain remote
+monitoring. Uptime Kuma documents that Docker socket/API access grants control
+of the daemon; Portainer and Pulse provide agents for their container-aware
+paths. Keep the monitoring service on a different node so a Pi 2 failure cannot
+take down both DNS and its observer.
+
+Sources:
+
+- [K3s requirements](https://docs.k3s.io/installation/requirements)
+- [Official Pi-hole Docker deployment](https://docs.pi-hole.net/docker/)
+- [Uptime Kuma Docker monitoring](https://github.com/louislam/uptime-kuma/wiki/How-to-Monitor-Docker-Containers)
+- [Pulse monitoring and agent model](https://github.com/rcourtman/Pulse)
+- [Pulse installation guide](https://github.com/rcourtman/Pulse/blob/main/docs/INSTALL.md)
+- [Portainer Docker environment options](https://docs.portainer.io/admin/environments/add/docker)
+- [Portainer Kubernetes agent](https://docs.portainer.io/admin/environments/add/kubernetes/agent)
+- [Portainer requirements and compatibility matrix](https://docs.portainer.io/start/requirements-and-prerequisites)
+- [Portainer ARM architecture support](https://docs.portainer.io/faqs/installing/which-arm-architectures-does-portainer-support)
 
 ## X86 deployment forms and source durability
 
@@ -273,9 +356,9 @@ Sources:
 
 ## Remaining implementation inputs
 
-The operator inputs that remain after this decision—second-resolver selection,
-router behavior, upstream/local DNS policy, and final Pi 1 disposition—are
-tracked only in
+The operator inputs that remain after this decision—Pi 2 deployment form,
+second-resolver selection, router behavior, upstream/local DNS policy, and
+final Pi 1 disposition—are tracked only in
 [Open homelab decisions](open-decisions.md). That file is the canonical
 backlog; this accepted record retains the rationale and settled role selection.
 
@@ -290,6 +373,8 @@ backlog; this accepted record retains the rationale and settled role selection.
   inventory, but remain candidates for optional lightweight projects.
 - Raspberry Pi OS and bare metal use more disk than Alpine alone but reduce
   operational variance and runtime layers.
-- The Pi 2 is permanently removed from K3s consideration while it owns DNS.
+- The Pi 2 remains outside the example K3s worker group until a K3s Pi-hole
+  workload and its resource, persistence, networking, and placement policy are
+  implemented.
 - Docker availability on Arch is reproducible through Ansible rather than an
   assumption about the installation image.

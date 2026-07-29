@@ -1,1 +1,2 @@
-k3s_minimum_memory_mb: 512
+k3s_agent_minimum_memory_mb: 512
+k3s_server_minimum_memory_mb: 2048

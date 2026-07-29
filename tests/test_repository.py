@@ -24,7 +24,7 @@ class RepositoryContractTests(unittest.TestCase):
         workers = set(groups["k3s_workers_supported"]["hosts"])
         self.assertTrue(servers.isdisjoint(workers))
 
-    def test_edge_node_architecture_guards_are_present(self):
+    def test_current_bare_metal_pihole_baseline_guards_are_present(self):
         groups = self.inventory["all"]["children"]
         pi2 = groups["pihole_nodes"]["hosts"]["pi2"]
         self.assertEqual(pi2["expected_architecture"], "armv7l")
@@ -75,6 +75,43 @@ class RepositoryContractTests(unittest.TestCase):
         self.assertIn("pwhash =", config)
         self.assertNotIn("\npassword =", config)
 
+    def test_pihole_pin_is_explicitly_limited_to_the_installer_source(self):
+        defaults = yaml.safe_load(
+            (ROOT / "ansible" / "roles" / "pihole" / "defaults" / "main.yml").read_text()
+        )
+        tasks = (
+            ROOT / "ansible" / "roles" / "pihole" / "tasks" / "main.yml"
+        ).read_text()
+
+        self.assertIn("pihole_installer_repository", defaults)
+        self.assertIn("pihole_installer_version", defaults)
+        self.assertNotIn("pihole_version", defaults)
+        self.assertIn("pihole_installer_version", tasks)
+        self.assertIn("pihole_version is not defined", tasks)
+
+    def test_tailscale_uses_vaulted_keys_only_for_unattended_enrollment(self):
+        tasks = (
+            ROOT / "ansible" / "roles" / "tailscale" / "tasks" / "main.yml"
+        ).read_text()
+
+        self.assertIn("vault_tailscale_auth_keys[inventory_hostname]", tasks)
+        self.assertIn("tailscale_backend_state", tasks)
+        self.assertIn("--auth-key=file:", tasks)
+        self.assertIn("Remove the staged Tailscale auth key", tasks)
+        self.assertIn("'REPLACE_ME'", tasks)
+        self.assertIn("no_log: true", tasks)
+
+    def test_ssh_handler_uses_the_platform_service_name(self):
+        defaults = (
+            ROOT / "ansible" / "roles" / "common" / "defaults" / "main.yml"
+        ).read_text()
+        handlers = (
+            ROOT / "ansible" / "roles" / "common" / "handlers" / "main.yml"
+        ).read_text()
+
+        self.assertIn("'sshd' if ansible_os_family == 'Archlinux' else 'ssh'", defaults)
+        self.assertIn("common_ssh_service_name", handlers)
+
     def test_k3s_agent_uses_only_the_runtime_discovered_token(self):
         template = (
             ROOT / "ansible" / "roles" / "k3s_agent" / "templates" / "config.yaml.j2"
@@ -92,6 +129,55 @@ class RepositoryContractTests(unittest.TestCase):
             for architecture, checksum in defaults["k3s_binary_checksums"].items():
                 with self.subTest(role=defaults_path.parts[-3], architecture=architecture):
                     self.assertRegex(checksum, re.compile(r"^[0-9a-f]{64}$"))
+
+    def test_k3s_pin_is_consistent_and_portainer_compatible(self):
+        all_vars = yaml.safe_load(
+            (
+                ROOT
+                / "ansible"
+                / "inventories"
+                / "example"
+                / "group_vars"
+                / "all"
+                / "main.yml"
+            ).read_text()
+        )
+        role_versions = {
+            yaml.safe_load(
+                (
+                    ROOT
+                    / "ansible"
+                    / "roles"
+                    / role
+                    / "defaults"
+                    / "main.yml"
+                ).read_text()
+            )["k3s_version"]
+            for role in ("k3s_server", "k3s_agent")
+        }
+
+        self.assertEqual(role_versions, {all_vars["k3s_version"]})
+        self.assertRegex(all_vars["k3s_version"], re.compile(r"^v1\.34\.\d+\+k3s\d+$"))
+
+    def test_k3s_memory_guards_distinguish_servers_and_agents(self):
+        defaults = yaml.safe_load(
+            (
+                ROOT
+                / "ansible"
+                / "roles"
+                / "k3s_prereqs"
+                / "defaults"
+                / "main.yml"
+            ).read_text()
+        )
+        tasks = (
+            ROOT / "ansible" / "roles" / "k3s_prereqs" / "tasks" / "main.yml"
+        ).read_text()
+
+        self.assertGreaterEqual(defaults["k3s_server_minimum_memory_mb"], 2048)
+        self.assertGreaterEqual(defaults["k3s_agent_minimum_memory_mb"], 512)
+        self.assertIn("k3s_server_minimum_memory_mb", tasks)
+        self.assertIn("k3s_agent_minimum_memory_mb", tasks)
 
     def test_platform_package_manifests_are_consumed_by_ansible(self):
         brewfile = ROOT / "ansible" / "packages" / "macos" / "Brewfile"

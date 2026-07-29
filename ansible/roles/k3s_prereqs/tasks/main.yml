@@ -4,7 +4,12 @@
       - groups.get('k3s_servers', []) | length == 1
       - groups.get('k3s_servers', []) | intersect(groups.get('k3s_workers_supported', [])) | length == 0
       - ansible_service_mgr == 'systemd'
-      - ansible_memtotal_mb >= k3s_minimum_memory_mb
+      - >-
+        ansible_memtotal_mb >= (
+          k3s_server_minimum_memory_mb
+          if inventory_hostname in groups.get('k3s_servers', [])
+          else k3s_agent_minimum_memory_mb
+        )
       - ansible_architecture != 'armv6l'
       - k3s_cluster_cidr | cidr_valid
       - k3s_service_cidr | cidr_valid
@@ -12,7 +17,8 @@
       - not (lan_cidr | cidr_overlaps(k3s_cluster_cidr))
     fail_msg: >-
       K3s requires exactly one server, disjoint server/worker groups, systemd,
-      supported resources and architecture, and non-overlapping LAN, pod, and service networks.
+      the role-appropriate memory minimum, supported architecture, and
+      non-overlapping LAN, pod, and service networks.
 
 - name: Inspect active Linux cgroup controllers
   ansible.builtin.slurp:

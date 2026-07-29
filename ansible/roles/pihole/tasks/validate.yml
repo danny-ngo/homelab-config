@@ -6,12 +6,20 @@
   register: pihole_cli
 - name: Read Pi-hole service state
   ansible.builtin.service_facts:
+- name: Check Pi-hole runtime status
+  ansible.builtin.command:
+    argv: [pihole, status]
+  register: pihole_runtime_status
+  changed_when: false
+  failed_when: false
+  when: pihole_cli.stat.exists
 - name: Verify the Pi-hole installation is secured and running
   ansible.builtin.assert:
     that:
       - pihole_cli.stat.exists
       - pihole_config.stat.exists
       - pihole_config.stat.mode == '0600'
-      - ansible_facts.services['pihole-FTL.service'].status == 'enabled'
-      - ansible_facts.services['pihole-FTL.service'].state == 'running'
+      - ansible_facts.services.get('pihole-FTL.service', {}).get('status') == 'enabled'
+      - ansible_facts.services.get('pihole-FTL.service', {}).get('state') == 'running'
+      - pihole_runtime_status.rc | default(1) == 0
     quiet: true

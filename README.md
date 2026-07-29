@@ -136,12 +136,20 @@ packages are installed by the roles that configure them; Stow belongs to the
 dotfiles flow (the Linux dotfiles role or the macOS Brewfile).
 
 Both Raspberry Pi 1 A+ boards are confirmed to have 256 MB RAM, so they remain
-outside managed inventory and cannot run the supported Pi-hole role. The
-Raspberry Pi 2 is the single dedicated bare-metal Pi-hole node and is not a K3s
-worker. Add a second supported resolver later before advertising two independent
-addresses through DHCP; there is no floating VIP or Pi-hole database
-replication. Arch Linux does not include Docker by default, so the
-execution-node role installs and enables it explicitly. See
+outside managed inventory and cannot run the supported Pi-hole role. The 1 GB
+Raspberry Pi 2 is reserved for Pi-hole. A worker-only K3s agent plus the Pi-hole
+pod is feasible, but the K3s minimum is a pre-workload baseline, so this is not
+generous headroom. The current example inventory remains on the implemented
+bare-metal path until the container networking, persistence, resource limits,
+and node placement are defined.
+
+Monitor DNS from another node with an end-to-end query. Portainer on another
+node can manage a standalone Docker deployment through an ARMv7 Agent or Edge
+Agent. For K3s, connect Portainer once to the Kubernetes cluster and observe the
+Pi-hole workload there; K3s uses containerd, so the Pi 2 is not a standalone
+Docker endpoint. Uptime Kuma remains the availability check, while Portainer
+provides runtime and lifecycle visibility. Add a second supported resolver
+later before claiming DNS redundancy. See
 [edge-node architecture decision](docs/decisions/0002-edge-node-architecture.md).
 
 The remaining operator choices are consolidated in

@@ -1,7 +1,7 @@
 # Open homelab decisions
 
 - Status: active backlog
-- Last consolidated: 2026-07-28
+- Last consolidated: 2026-07-29
 
 This is the canonical list of operator decisions that remain open. Accepted
 architecture decisions are not repeated here.
@@ -17,6 +17,7 @@ architecture decisions are not repeated here.
 
 | Decision or input | Required outcome | Blocks |
 | --- | --- | --- |
+| Choose the Pi 2 deployment form | Select bare metal, standalone Docker, or a dedicated tainted K3s worker; for K3s define the Pi-hole workload, persistence, port 53 exposure, resource limits, and placement | Moving the Pi 2 into the K3s worker group or replacing the current bare-metal role |
 | Select a second supported resolver | Record architecture, RAM, storage, wired interface, address, power source, and expected uptime | Redundant DNS |
 | Confirm IPv4 DHCP option 6 and IPv6 RA/DHCPv6 behavior | Prove two filtered resolver addresses can be advertised without an unfiltered IPv6 bypass | Router cutover |
 | Choose the common upstream policy | Provider resolvers or local Unbound, DNSSEC behavior, and intentional upstream diversity | Final Pi-hole configuration |
@@ -44,7 +45,8 @@ architecture decisions are not repeated here.
 
 - Both Pi 1 boards have 256 MB RAM and are excluded from Pi-hole and managed
   inventory.
-- The Pi 2 is the single dedicated Pi-hole host and is not a K3s worker.
+- The Pi 2 is reserved for Pi-hole and must not run unrelated workloads; its
+  deployment form is reopened.
 - The MacBook is the Ansible controller.
 - The remote macOS installer bootstraps Homebrew and the checkout; local
   bootstrap then installs uv, uv-managed Python 3.14, and uv-tool Ansible.
@@ -52,8 +54,9 @@ architecture decisions are not repeated here.
 - Linux initial bootstrap installs global uv, per-user uv-managed Python 3.14,
   and a per-user global 3.14 pin; system Python executes Ansible modules.
 - Ansible Vault, strict OpenSSH host-key checking, Tailscale SSH exclusion,
-  tagged unattended nodes, Docker placement, bare-metal Pi-hole, the K3s
-  SQLite/control-plane shape, and the no-GitOps baseline are accepted.
+  tagged unattended nodes, Docker placement, the current bare-metal Pi-hole
+  baseline, the K3s SQLite/control-plane shape, and the no-GitOps baseline are
+  accepted.
 
 See the numbered records in this directory for the rationale behind settled
 decisions.

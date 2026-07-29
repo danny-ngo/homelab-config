@@ -4,7 +4,8 @@ argument_specs:
       pihole_interface: {type: str, required: true}
       pihole_upstream_resolvers: {type: list, elements: str, required: true}
       vault_pihole_web_password_hashes: {type: dict, required: true}
-      pihole_version: {type: str}
+      pihole_installer_repository: {type: str}
+      pihole_installer_version: {type: str}
       pihole_minimum_memory_mb: {type: int}
       pihole_local_records: {type: list, elements: str}
       pihole_install_dir: {type: path}

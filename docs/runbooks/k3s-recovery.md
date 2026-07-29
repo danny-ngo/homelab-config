@@ -77,9 +77,17 @@ workloads, not just systemd process state.
 Do not share kubeconfig, node-token contents, or command output containing
 credentials in tickets or chat.
 
-## Raspberry Pi 2 exclusion
+## Raspberry Pi 2 admission gate
 
-The Pi 2 is permanently assigned to bare-metal Pi-hole and is not a K3s worker.
-It must not have a K3s agent installed, appear in a worker inventory group, or
-be included in cluster recovery. The supported K3s baseline is the ThinkPad
-server plus the two Pi 3 workers.
+The current example baseline assigns the Pi 2 to bare-metal Pi-hole, so it does
+not yet have a K3s agent or appear in the worker inventory group. This is an
+implementation gate, not a hardware exclusion: its 1 GB RAM meets the K3s agent
+baseline, which excludes workload consumption.
+
+Before admitting it, add a reviewed Pi-hole Kubernetes workload with persistent
+configuration, explicit DNS port exposure, measured requests and limits, and
+node affinity for a dedicated DNS label. Taint the Pi 2 so unrelated workloads
+cannot land there, then extend recovery checks to prove that the Pi-hole pod
+returns to the Pi 2 and answers direct UDP and TCP DNS queries after a reboot.
+Do not add the worker first and leave the critical workload or scheduling policy
+implicit.

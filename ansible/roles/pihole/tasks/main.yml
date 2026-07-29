@@ -26,6 +26,7 @@
 - name: Verify Pi-hole platform prerequisites
   ansible.builtin.assert:
     that:
+      - pihole_version is not defined
       - >-
         pihole_detected_memory_mb
         | default(ansible_memtotal_mb, true)
@@ -34,26 +35,32 @@
       - ansible_architecture in ['armv6l', 'armv7l', 'aarch64', 'x86_64']
       - pihole_interface in ansible_interfaces
       - pihole_upstream_resolvers | length > 0
+      - pihole_installer_repository | length > 0
+      - pihole_installer_version is match('^v[0-9]+\.[0-9]+\.[0-9]+$')
     fail_msg: >-
       Pi-hole requires a maintained Debian-family OS, a supported architecture,
       at least {{ pihole_minimum_memory_mb }} MB installed RAM, the configured
-      network interface, and at least one upstream resolver.
+      network interface, at least one upstream resolver, and a versioned
+      installer source. Rename any legacy pihole_version override to
+      pihole_installer_version.
 
 - name: Verify this Pi-hole has a vaulted web password hash
   ansible.builtin.assert:
     that:
       - vault_pihole_web_password_hashes is defined
       - inventory_hostname in (vault_pihole_web_password_hashes | default({}))
+      - vault_pihole_web_password_hashes[inventory_hostname] | length > 0
+      - vault_pihole_web_password_hashes[inventory_hostname] != 'REPLACE_ME'
     fail_msg: >-
       Add a password hash for {{ inventory_hostname }} to
       vault_pihole_web_password_hashes in the encrypted production vault.
   no_log: true
 
-- name: Clone the pinned Pi-hole release
+- name: Clone the pinned Pi-hole installer source
   ansible.builtin.git:
-    repo: https://github.com/pi-hole/pi-hole.git
+    repo: "{{ pihole_installer_repository }}"
     dest: "{{ pihole_install_dir }}"
-    version: "{{ pihole_version }}"
+    version: "{{ pihole_installer_version }}"
     depth: 1
 
 - name: Inspect the Pi-hole CLI
@@ -80,7 +87,7 @@
   when: not pihole_cli.stat.exists
   no_log: true
 
-- name: Install the pinned Pi-hole release on bare metal
+- name: Install Pi-hole from the pinned installer source on bare metal
   ansible.builtin.command:
     argv:
       - bash
