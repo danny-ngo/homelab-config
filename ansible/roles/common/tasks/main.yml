@@ -4,6 +4,9 @@
       - ansible_os_family == expected_os_family
       - ansible_architecture == expected_architecture
       - administrator_public_keys | length > 0
+- name: Install the controller's Ghostty terminfo for the SSH user
+  ansible.builtin.include_tasks: ghostty-terminfo.yml
+  when: common_ghostty_terminfo_enabled
 - name: Set the Linux hostname
   ansible.builtin.hostname:
     name: "{{ common_hostname }}"

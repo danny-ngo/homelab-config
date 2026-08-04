@@ -1,0 +1,95 @@
+- name: Detect the Ansible controller operating system
+  ansible.builtin.command: /usr/bin/uname -s
+  delegate_to: localhost
+  become: false
+  run_once: true
+  register: common_controller_system
+  changed_when: false
+  check_mode: false
+
+- name: Inspect the Ghostty terminfo database on a Mac controller
+  ansible.builtin.stat:
+    path: "{{ common_ghostty_terminfo_database }}"
+  delegate_to: localhost
+  become: false
+  run_once: true
+  register: common_ghostty_terminfo_database_status
+  when: common_controller_system.stdout == 'Darwin'
+
+- name: Export the Ghostty terminfo source on the Mac controller
+  ansible.builtin.command:
+    argv:
+      - "{{ common_ghostty_infocmp_path }}"
+      - -A
+      - "{{ common_ghostty_terminfo_database }}"
+      - -x
+      - xterm-ghostty
+  delegate_to: localhost
+  become: false
+  run_once: true
+  register: common_ghostty_terminfo_source
+  changed_when: false
+  check_mode: false
+  when:
+    - common_controller_system.stdout == 'Darwin'
+    - common_ghostty_terminfo_database_status.stat.isdir | default(false)
+
+- name: Install Ghostty terminfo on the managed node
+  when:
+    - common_controller_system.stdout == 'Darwin'
+    - common_ghostty_terminfo_database_status.stat.isdir | default(false)
+  block:
+    - name: Install the terminfo compiler
+      ansible.builtin.package:
+        name: "{{ common_terminfo_packages.get(ansible_os_family, []) }}"
+        state: present
+      when: common_terminfo_packages.get(ansible_os_family, []) | length > 0
+
+    - name: Resolve the SSH user's home directory
+      ansible.builtin.getent:
+        database: passwd
+        key: "{{ ansible_user }}"
+
+    - name: Create the SSH user's terminfo directory
+      ansible.builtin.file:
+        path: "{{ ansible_facts.getent_passwd[ansible_user][4] }}/.terminfo"
+        state: directory
+        mode: '0755'
+      become: true
+      become_user: "{{ ansible_user }}"
+
+    - name: Inspect the compiled Ghostty terminfo entry
+      ansible.builtin.find:
+        paths: "{{ ansible_facts.getent_passwd[ansible_user][4] }}/.terminfo"
+        patterns: xterm-ghostty
+        file_type: file
+        recurse: true
+      become: true
+      become_user: "{{ ansible_user }}"
+      register: common_ghostty_compiled_terminfo
+
+    - name: Stage the Ghostty terminfo source
+      ansible.builtin.copy:
+        content: "{{ common_ghostty_terminfo_source.stdout }}\n"
+        dest: >-
+          {{ ansible_facts.getent_passwd[ansible_user][4] }}/.terminfo/.xterm-ghostty.src
+        mode: '0644'
+      become: true
+      become_user: "{{ ansible_user }}"
+      register: common_ghostty_terminfo_source_file
+
+    - name: Compile the Ghostty terminfo entry
+      ansible.builtin.command:
+        argv:
+          - /usr/bin/tic
+          - -x
+          - -o
+          - "{{ ansible_facts.getent_passwd[ansible_user][4] }}/.terminfo"
+          - >-
+            {{ ansible_facts.getent_passwd[ansible_user][4] }}/.terminfo/.xterm-ghostty.src
+      become: true
+      become_user: "{{ ansible_user }}"
+      when:
+        - common_ghostty_terminfo_source_file.changed
+          or common_ghostty_compiled_terminfo.matched == 0
+      changed_when: true

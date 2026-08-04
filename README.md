@@ -82,6 +82,14 @@ temporarily set `ANSIBLE_SSH_ARGS='-o StrictHostKeyChecking=accept-new'`; review
 the accepted fingerprints immediately afterward and do not use this shortcut
 when a host identity should already be known.
 
+The Linux baseline also exports Ghostty's `xterm-ghostty` entry from the
+MacBook controller and compiles it into the SSH user's `~/.terminfo` on each
+managed host. This is the persistent, Ansible-managed equivalent of piping
+`infocmp` through a separate SSH command. For unmanaged hosts, Ghostty 1.3 and
+newer can instead install the entry on interactive connections when
+`ssh-terminfo` is added to `shell-integration-features`; that shell wrapper
+does not apply to Ansible or other non-interactive SSH callers.
+
 The ThinkPad is modeled as the persistent infrastructure host and K3s server,
 not as a second controller. The MacBook applies and recovers all managed-node
 profiles.

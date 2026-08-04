@@ -3,5 +3,9 @@ argument_specs:
     options:
       common_packages: {type: list, elements: str}
       common_ssh_service_name: {type: str}
+      common_ghostty_terminfo_enabled: {type: bool}
+      common_ghostty_terminfo_database: {type: path}
+      common_ghostty_infocmp_path: {type: path}
+      common_terminfo_packages: {type: dict}
       expected_os_family: {type: str, required: true}
       expected_architecture: {type: str, required: true}
