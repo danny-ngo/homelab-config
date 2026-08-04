@@ -1,24 +1,21 @@
-- name: Verify the Pi 1 Wake-on-LAN platform
+- name: Verify the Wake-on-LAN host and repetition settings
   ansible.builtin.assert:
     that:
       - ansible_os_family == 'Debian'
-      - ansible_architecture == 'armv6l'
       - expected_os_family | default('') == 'Debian'
-      - expected_architecture | default('') == 'armv6l'
-      - pi1_wol_targets | length > 0
+      - wol_targets | length > 0
       - >-
-        pi1_wol_targets | map(attribute='name') | unique | length
-        == pi1_wol_targets | length
-      - pi1_wol_default_port >= 1
-      - pi1_wol_default_port <= 65535
-      - pi1_wol_repeat_count >= 1
-      - pi1_wol_repeat_count <= 10
-      - pi1_wol_repeat_interval_seconds >= 0
-      - pi1_wol_repeat_interval_seconds <= 10
+        wol_targets | map(attribute='name') | unique | length
+        == wol_targets | length
+      - wol_default_port >= 1
+      - wol_default_port <= 65535
+      - wol_repeat_count >= 1
+      - wol_repeat_count <= 10
+      - wol_repeat_interval_seconds >= 0
+      - wol_repeat_interval_seconds <= 10
     fail_msg: >-
-      The Wake-on-LAN role requires Raspberry Pi OS or another Debian-family
-      ARMv6 system, at least one uniquely named target, and bounded packet
-      repetition settings.
+      The Wake-on-LAN role requires a Debian-family host, at least one uniquely
+      named target, and bounded packet repetition settings.
 
 - name: Verify each Wake-on-LAN target
   ansible.builtin.assert:
@@ -27,18 +24,18 @@
       - item.mac_address is match('^(?:[0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$')
       - >-
         item.broadcast_address
-        | default(pi1_wol_default_broadcast_address)
+        | default(wol_default_broadcast_address)
         | length > 0
       - >-
         item.broadcast_address
-        | default(pi1_wol_default_broadcast_address)
+        | default(wol_default_broadcast_address)
         | ipv4_address_valid
-      - item.port | default(pi1_wol_default_port) | int >= 1
-      - item.port | default(pi1_wol_default_port) | int <= 65535
+      - item.port | default(wol_default_port) | int >= 1
+      - item.port | default(wol_default_port) | int <= 65535
     fail_msg: >-
       Each Wake-on-LAN target needs a filename-safe unique name, a colon-form
       MAC address, a numeric broadcast address, and a valid UDP port.
-  loop: "{{ pi1_wol_targets }}"
+  loop: "{{ wol_targets }}"
   loop_control:
     label: "{{ item.name | default('invalid target') }}"
 
@@ -54,6 +51,6 @@
     owner: root
     group: root
     mode: "0755"
-  loop: "{{ pi1_wol_targets }}"
+  loop: "{{ wol_targets }}"
   loop_control:
     label: "{{ item.name }}"

@@ -559,7 +559,7 @@ sudo systemctl reboot</code></pre>
         <section id="execution">
           <p class="section-label">10 · Execution node</p>
           <h2>Apply the repository-managed development profile</h2>
-          <p class="section-intro">The homelab repository owns mise with Node.js 24, Go and Rust; Codex CLI and OpenCode; Docker settings; Tailscale; the T3 Code headless server; and dotfiles integration. Avoid maintaining a second manual configuration in parallel.</p>
+          <p class="section-intro">The homelab repository owns mise with Node.js 24, Go, Rust and Herdr; Codex CLI and OpenCode; Docker settings; Tailscale; the T3 Code headless server; and dotfiles integration. Avoid maintaining a second manual configuration in parallel.</p>
           <ol class="steps">
             <li>
               <h3>Install the bootstrap prerequisites</h3>
@@ -580,7 +580,7 @@ uv python pin --global</code></pre>
             </li>
             <li>
               <h3>Check, apply and validate the execution-node playbook</h3>
-              <p>Return to the MacBook checkout. The controller playbook installs Tailscale, mise-managed Node.js 24, Go and Rust, Codex CLI, OpenCode, and a systemd-managed T3 Code headless server exposed with Tailscale Serve.</p>
+              <p>Return to the MacBook checkout. The controller playbook installs Tailscale, mise-managed Node.js 24, Go, Rust and Herdr, Codex CLI, OpenCode, and a systemd-managed T3 Code headless server exposed with Tailscale Serve.</p>
               <pre><code>./bootstrap.sh --profile execution-node --limit thinkcentre --check
 ./bootstrap.sh --profile execution-node --limit thinkcentre
 make validate LIMIT=thinkcentre</code></pre>

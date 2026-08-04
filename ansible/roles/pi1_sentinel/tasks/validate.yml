@@ -1,0 +1,31 @@
+- name: Inspect Pi 1 sentinel installation files
+  ansible.builtin.stat:
+    path: "{{ item }}"
+  loop:
+    - /usr/local/sbin/pi1-service-sentinel
+    - "{{ pi1_sentinel_config_dir }}/settings.tsv"
+    - "{{ pi1_sentinel_config_dir }}/heartbeats.tsv"
+    - /etc/systemd/system/pi1-service-sentinel.service
+  register: pi1_sentinel_file_stats
+
+- name: Read Pi 1 sentinel service state
+  ansible.builtin.service_facts:
+
+- name: Verify the Pi 1 sentinel installation
+  ansible.builtin.assert:
+    that:
+      - >-
+        pi1_sentinel_file_stats.results
+        | map(attribute='stat.exists')
+        | select('equalto', false)
+        | list
+        | length == 0
+      - >-
+        ansible_facts.services.get('pi1-service-sentinel.service', {}).get('status')
+        == 'enabled'
+      - >-
+        ansible_facts.services.get('pi1-service-sentinel.service', {}).get('state')
+        == 'running'
+      - pi1_sentinel_file_stats.results[1].stat.mode == '0640'
+      - pi1_sentinel_file_stats.results[2].stat.mode == '0640'
+    quiet: true

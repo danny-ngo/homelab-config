@@ -1,7 +1,7 @@
 argument_specs:
   main:
     options:
-      pi1_wol_targets:
+      wol_targets:
         type: list
         elements: dict
         required: true
@@ -10,7 +10,7 @@ argument_specs:
           mac_address: {type: str, required: true}
           broadcast_address: {type: str}
           port: {type: int}
-      pi1_wol_default_broadcast_address: {type: str}
-      pi1_wol_default_port: {type: int}
-      pi1_wol_repeat_count: {type: int}
-      pi1_wol_repeat_interval_seconds: {type: int}
+      wol_default_broadcast_address: {type: str}
+      wol_default_port: {type: int}
+      wol_repeat_count: {type: int}
+      wol_repeat_interval_seconds: {type: int}

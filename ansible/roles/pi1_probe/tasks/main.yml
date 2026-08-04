@@ -16,10 +16,12 @@
       - pi1_probe_ping_timeout_seconds <= 30
       - pi1_probe_http_timeout_seconds >= 1
       - pi1_probe_http_timeout_seconds <= 60
+      - pi1_probe_boot_media_gb >= 8
       - pi1_probe_user is match('^[a-z_][a-z0-9_-]*$')
     fail_msg: >-
       The probe role requires a systemd-based Debian ARMv6 system, at least
-      one uniquely named target, and bounded probe timing.
+      one uniquely named target, at least 8 GB boot media, and bounded probe
+      timing.
 
 - name: Verify each probe target
   ansible.builtin.assert:

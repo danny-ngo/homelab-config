@@ -1,8 +1,8 @@
 # Initial bootstrap owns Git, OpenSSH, the distribution Python, and the global
 # uv executable. Purpose-specific roles own their own packages (for example,
-# tailscale, stow, and the host firewall). Keep this manifest limited to the
-# baseline utilities and packages configured by the two host-profile roles.
-common_packages:
+# tailscale, stow, and the host firewall). Shared operator tools remain separate
+# from packages required by one host profile.
+operator_linux_packages:
   - bat
   - btop
   - fastfetch
@@ -14,11 +14,13 @@ infra_host_packages:
   - docker-cli
   - docker-compose
   - docker.io
+  - tmux
 
 execution_node_packages:
   - bubblewrap
   - docker
   - docker-buildx
   - docker-compose
+  - github-cli
   - mise
   - zsh

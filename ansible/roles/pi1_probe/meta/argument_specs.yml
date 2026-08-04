@@ -13,5 +13,6 @@ argument_specs:
       pi1_probe_interval_seconds: {type: int}
       pi1_probe_ping_timeout_seconds: {type: int}
       pi1_probe_http_timeout_seconds: {type: int}
+      pi1_probe_boot_media_gb: {type: int}
       pi1_probe_user: {type: str}
       pi1_probe_config_dir: {type: path}

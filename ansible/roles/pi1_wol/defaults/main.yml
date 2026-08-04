@@ -1,5 +1,0 @@
-pi1_wol_targets: []
-pi1_wol_default_broadcast_address: ""
-pi1_wol_default_port: 9
-pi1_wol_repeat_count: 3
-pi1_wol_repeat_interval_seconds: 1

@@ -77,7 +77,7 @@
   ansible.builtin.debug:
     msg: >-
       Docker group membership grants root-equivalent access. Python is uv-managed;
-      Node, Go, and Rust are mise-managed. Codex and OpenCode authentication and
-      T3 Code client pairing remain operator actions. Project repositories under
-      ~/src require reviewed commits and frequent pushes to GitHub; Ansible does
-      not automatically commit or push working trees.
+      Node, Go, Rust, and Herdr are mise-managed. GitHub CLI, Codex, and OpenCode
+      authentication and T3 Code client pairing remain operator actions. Project
+      repositories under ~/src require reviewed commits and frequent pushes to
+      GitHub; Ansible does not automatically commit or push working trees.

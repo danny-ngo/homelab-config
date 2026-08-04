@@ -1,4 +1,4 @@
-common_packages: []
+operator_linux_packages: []
 common_hostname: "{{ inventory_hostname }}"
 common_ssh_service_name: "{{ 'sshd' if ansible_os_family == 'Archlinux' else 'ssh' }}"
 common_ghostty_terminfo_enabled: true

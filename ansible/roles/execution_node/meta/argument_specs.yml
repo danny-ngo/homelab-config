@@ -10,6 +10,7 @@ argument_specs:
       mise_node_version: {type: str}
       mise_go_version: {type: str}
       mise_rust_version: {type: str}
+      mise_herdr_version: {type: str}
       docker_log_max_size: {type: str}
       docker_log_max_files: {type: str}
       t3_code_host: {type: str}

@@ -63,7 +63,7 @@ of this installer; see the Pi 1 runbook linked below.
 ./bootstrap.sh --profile execution-node         # ThinkCentre configuration
 ./bootstrap.sh --profile pihole --limit pi2
 ./bootstrap.sh --profile k3s-worker --limit pi3a
-./bootstrap.sh --profile pi1-wol --limit pi1wol
+./bootstrap.sh --profile pi1-sentinel --limit pi1sentinel
 ./bootstrap.sh --profile pi1-probe --limit pi1probe
 ./bootstrap.sh --profile infra --check           # Ansible check mode
 ./bootstrap.sh --prepare-only                    # controller tooling only
@@ -92,7 +92,10 @@ does not apply to Ansible or other non-interactive SSH callers.
 
 The ThinkPad is modeled as the persistent infrastructure host and K3s server,
 not as a second controller. The MacBook applies and recovers all managed-node
-profiles.
+profiles. Helm follows the same boundary: use its CLI from the MacBook or
+explicit automation with a protected kubeconfig; installing the CLI on the
+ThinkPad is optional break-glass tooling, not a cluster requirement. See
+[K3s Helm administration and recovery](docs/runbooks/k3s-recovery.md).
 
 Bootstrap keeps controller, development, and managed-node Python
 responsibilities separate:
@@ -126,9 +129,10 @@ See the [detailed bootstrap flow](docs/bootstrap-python-flow.md) and
 [Python, Ansible, and uv ownership decision](docs/decisions/0003-python-ansible-uv-bootstrap.md).
 
 Node 24, Go, and Rust are managed exclusively by Ansible through each user’s
-global `mise` configuration (`~/.config/mise/config.toml`). Workstation and
-execution-node profiles also install Codex CLI and OpenCode; the execution-node
-profile runs T3 Code headlessly behind Tailscale Serve.
+global `mise` configuration (`~/.config/mise/config.toml`). The execution node
+also installs Herdr through that configuration. Workstation and execution-node
+profiles install Codex CLI and OpenCode; the execution-node profile runs T3
+Code headlessly behind Tailscale Serve.
 
 Deployment form is selected per service; there is no VM layer without a
 specific isolation requirement. T3 Code runs bare metal on the always-on
@@ -153,25 +157,32 @@ dotfiles flow (the Linux dotfiles role or the macOS Brewfile).
 
 Both Raspberry Pi 1 A+ boards are confirmed to have 256 MB RAM and remain
 excluded from Pi-hole, K3s, and the standard managed-node baseline. They have
-purpose-specific ARMv6 roles instead: one sends fixed Wake-on-LAN commands and
-one publishes target and self heartbeats to Healthchecks.io after successful
-pings. Their `pi1_edge_nodes` inventory parent selects distribution
-`/usr/bin/python3` without uv. See the
+purpose-specific ARMv6 roles instead: the 8 GB `pi1probe` publishes host and
+self heartbeats to Healthchecks.io after successful pings, while the 32 GB
+`pi1sentinel` independently verifies the Pi 2's DNS over UDP and TCP plus its
+Pi-hole HTTP endpoint. Neither stores monitoring history locally. Their
+`pi1_edge_nodes` inventory parent selects distribution `/usr/bin/python3`
+without uv. See the
 [Pi 1 edge-services runbook](docs/runbooks/pi1-edge-services.md).
 
-The 1 GB Raspberry Pi 2 is reserved for Pi-hole. A worker-only K3s agent plus
-the Pi-hole pod is feasible, but the K3s minimum is a pre-workload baseline, so
-this is not generous headroom. The current example inventory remains on the
-implemented bare-metal path until the container networking, persistence,
-resource limits, and node placement are defined.
+The 1 GB Raspberry Pi 2 is reserved for Pi-hole plus its supporting Tailscale
+service and fixed Wake-on-LAN commands. Remote operators invoke those commands
+directly over the Pi 2's Tailscale connection; no Pi 1 jump hop or subnet route
+is required. The Pi 1 boards remain off the tailnet. A worker-only K3s agent
+plus the Pi-hole pod is feasible, but the K3s minimum is a pre-workload
+baseline, so this is not generous headroom. The current example inventory
+remains on the implemented bare-metal path until the container networking,
+persistence, resource limits, and node placement are defined. See the
+[DNS runbook](docs/runbooks/dns.md) for WoL, validation, and the gated tailnet
+DNS and firewall design.
 
-Monitor DNS from another node with an end-to-end query. Portainer on another
-node can manage a standalone Docker deployment through an ARMv7 Agent or Edge
-Agent. For K3s, connect Portainer once to the Kubernetes cluster and observe the
-Pi-hole workload there; K3s uses containerd, so the Pi 2 is not a standalone
-Docker endpoint. Uptime Kuma remains the availability check, while Portainer
-provides runtime and lifecycle visibility. Add a second supported resolver
-later before claiming DNS redundancy. See
+The Pi 1 sentinel performs the lightweight independent availability checks;
+it is not a monitoring control plane. Portainer on another node can manage a
+standalone Docker deployment through an ARMv7 Agent or Edge Agent. For K3s,
+connect Portainer once to the Kubernetes cluster and observe the Pi-hole
+workload there; K3s uses containerd, so the Pi 2 is not a standalone Docker
+endpoint. Add a second supported resolver later before claiming DNS
+redundancy. See
 [edge-node architecture decision](docs/decisions/0002-edge-node-architecture.md).
 
 The remaining operator choices are consolidated in

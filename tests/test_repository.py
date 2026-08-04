@@ -55,6 +55,18 @@ class RepositoryContractTests(unittest.TestCase):
             ).read_text()
         )
         self.assertIn("pi2", vault_example["vault_pihole_web_password_hashes"])
+        self.assertIn("pi2", vault_example["vault_tailscale_auth_keys"])
+        self.assertIn("pihole_nodes", groups["tailscale_nodes"]["children"])
+        self.assertEqual(
+            {target["name"] for target in pi2["wol_targets"]},
+            {"thinkpad", "thinkcentre"},
+        )
+
+        dns_playbook = (
+            ROOT / "ansible" / "playbooks" / "dns.yml"
+        ).read_text()
+        for role in ("pihole", "tailscale", "wol"):
+            self.assertIn(role, dns_playbook)
 
         pihole_defaults = yaml.safe_load(
             (ROOT / "ansible" / "roles" / "pihole" / "defaults" / "main.yml").read_text()
@@ -192,7 +204,7 @@ class RepositoryContractTests(unittest.TestCase):
         self.assertIn("packages/macos/Brewfile", workstation_tasks)
 
         packages = yaml.safe_load(linux_manifest.read_text())
-        self.assertIn("common_packages", packages)
+        self.assertIn("operator_linux_packages", packages)
         self.assertIn("infra_host_packages", packages)
         self.assertIn("execution_node_packages", packages)
         for profile in ("infra_host_packages", "execution_node_packages"):
@@ -204,6 +216,19 @@ class RepositoryContractTests(unittest.TestCase):
         self.assertIn("docker", packages["execution_node_packages"])
         self.assertIn("docker-buildx", packages["execution_node_packages"])
         self.assertNotIn("docker-buildx-plugin", packages["execution_node_packages"])
+        self.assertIn("github-cli", packages["execution_node_packages"])
+        self.assertNotIn("gh", packages["execution_node_packages"])
+        self.assertNotIn("herdr", packages["execution_node_packages"])
+
+        execution_node_mise = (
+            ROOT
+            / "ansible"
+            / "roles"
+            / "execution_node"
+            / "templates"
+            / "mise-config.toml.j2"
+        ).read_text()
+        self.assertIn('herdr = "{{ mise_herdr_version }}"', execution_node_mise)
 
     def test_package_ownership_has_no_overlapping_declarations(self):
         linux_manifest = yaml.safe_load(
@@ -281,7 +306,7 @@ class RepositoryContractTests(unittest.TestCase):
         pi1_children = set(groups["pi1_edge_nodes"]["children"])
         linux_children = set(groups["linux_nodes"]["children"])
 
-        self.assertEqual(pi1_children, {"pi1_wol_nodes", "pi1_probe_nodes"})
+        self.assertEqual(pi1_children, {"pi1_sentinel_nodes", "pi1_probe_nodes"})
         self.assertTrue(pi1_children.isdisjoint(linux_children))
         self.assertEqual(
             groups["pi1_edge_nodes"]["vars"]["ansible_python_interpreter"],
@@ -316,6 +341,7 @@ class RepositoryContractTests(unittest.TestCase):
             {target["name"] for target in probe["pi1_probe_targets"]},
             {"thinkpad", "thinkcentre"},
         )
+        self.assertEqual(probe["pi1_probe_boot_media_gb"], 8)
         self.assertEqual(
             set(vault_example["vault_pi1_probe_healthchecks_urls"]["pi1probe"]),
             {"probe", "thinkpad", "thinkcentre"},
@@ -326,21 +352,52 @@ class RepositoryContractTests(unittest.TestCase):
         self.assertNotIn("mqtt", role_text.lower())
         self.assertNotIn("mosquitto", role_text.lower())
 
-    def test_pi1_wol_installs_fixed_non_root_wake_commands(self):
+    def test_pi2_installs_fixed_non_root_wake_commands(self):
         groups = self.inventory["all"]["children"]
-        wol = groups["pi1_wol_nodes"]["hosts"]["pi1wol"]
-        role_root = ROOT / "ansible" / "roles" / "pi1_wol"
+        wol = groups["pihole_nodes"]["hosts"]["pi2"]
+        role_root = ROOT / "ansible" / "roles" / "wol"
         tasks = (role_root / "tasks" / "main.yml").read_text()
         command_template = (role_root / "templates" / "wake-target.sh.j2").read_text()
 
         self.assertEqual(
-            {target["name"] for target in wol["pi1_wol_targets"]},
+            {target["name"] for target in wol["wol_targets"]},
             {"thinkpad", "thinkcentre"},
         )
         self.assertIn("name: wakeonlan", tasks)
         self.assertIn("/usr/local/bin/wake-{{ item.name }}", tasks)
         self.assertIn("/usr/bin/wakeonlan", command_template)
         self.assertNotIn("sudo", command_template)
+
+    def test_pi1_sentinel_checks_pi2_services_with_vaulted_heartbeats(self):
+        groups = self.inventory["all"]["children"]
+        sentinel = groups["pi1_sentinel_nodes"]["hosts"]["pi1sentinel"]
+        vault_example = yaml.safe_load(
+            (
+                ROOT
+                / "ansible"
+                / "inventories"
+                / "example"
+                / "group_vars"
+                / "all"
+                / "vault.yml.example"
+            ).read_text()
+        )
+        role_root = ROOT / "ansible" / "roles" / "pi1_sentinel"
+        role_text = "\n".join(
+            path.read_text() for path in role_root.rglob("*") if path.is_file()
+        )
+
+        self.assertEqual(sentinel["pi1_sentinel_dns_server"], "192.0.2.33")
+        self.assertEqual(sentinel["pi1_sentinel_boot_media_gb"], 32)
+        self.assertEqual(
+            set(vault_example["vault_pi1_sentinel_healthchecks_urls"]["pi1sentinel"]),
+            {"dns_udp", "dns_tcp", "http", "sentinel"},
+        )
+        self.assertIn("/usr/bin/dig", role_text)
+        self.assertIn("+tcp", role_text)
+        self.assertIn("User={{ pi1_sentinel_user }}", role_text)
+        self.assertIn("NoNewPrivileges=true", role_text)
+        self.assertNotIn("wakeonlan", role_text)
 
     def test_bootstrap_uses_focused_library_modules(self):
         bootstrap = (ROOT / "bootstrap.sh").read_text()

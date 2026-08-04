@@ -1,7 +1,7 @@
 # Open homelab decisions
 
 - Status: active backlog
-- Last consolidated: 2026-07-29
+- Last consolidated: 2026-07-31
 
 This is the canonical list of operator decisions that remain open. Accepted
 architecture decisions are not repeated here.
@@ -27,7 +27,8 @@ architecture decisions are not repeated here.
 
 | Decision or input | Required outcome | Blocks |
 | --- | --- | --- |
-| Finalize Tailscale ACLs | Rules, tag ownership, auth-key expiry, and revocation procedure | Production tailnet policy |
+| Complete the Pi 2 tailnet DNS gate | Add an explicit Pi-hole `ALL` listener option, host-firewall rules for TCP/UDP 53 on the wired LAN and `tailscale0`, and tests that keep the web interface private | Enabling remote filtered DNS |
+| Finalize Tailscale ACLs | Define Pi 2 tag ownership, remote DNS access on TCP/UDP 53, fixed-command SSH access for WoL, auth-key expiry, and revocation; do not advertise a subnet route unless broader LAN access is deliberately enabled | Production tailnet policy and remote filtered DNS |
 | Define immutable dotfiles promotion | How a tested commit becomes the stable rebuild revision | Reproducible user configuration |
 
 ## Stateful services and durability
@@ -44,9 +45,12 @@ architecture decisions are not repeated here.
 
 - Both Pi 1 boards have 256 MB RAM. They are excluded from Pi-hole, K3s, and
   the standard Linux baseline; purpose-specific ARMv6 roles configure a
-  Wake-on-LAN box and an outbound reachability probe.
-- The Pi 2 is reserved for Pi-hole and must not run unrelated workloads; its
-  deployment form is reopened.
+  32 GB service sentinel and an 8 GB outbound reachability probe.
+- The Pi 2 is reserved for Pi-hole and its supporting Tailscale service. It
+  sends Wake-on-LAN packets through fixed local commands; subnet routing is
+  optional and disabled by default. Remote filtered DNS remains gated on the
+  listener, firewall, and tailnet policy above. The Pi-hole deployment form
+  remains reopened.
 - The MacBook is the Ansible controller.
 - The remote macOS installer bootstraps Homebrew and the checkout; local
   bootstrap then installs uv, uv-managed Python 3.14, and uv-tool Ansible.

@@ -99,7 +99,10 @@ class BootstrapTests(unittest.TestCase):
 
     def test_pi1_profiles_use_the_purpose_specific_playbooks(self):
         cases = {
-            "pi1-wol": ("ansible/playbooks/pi1-wol.yml", "pi1_wol_nodes"),
+            "pi1-sentinel": (
+                "ansible/playbooks/pi1-sentinel.yml",
+                "pi1_sentinel_nodes",
+            ),
             "pi1-probe": ("ansible/playbooks/pi1-probe.yml", "pi1_probe_nodes"),
         }
         for profile, (playbook, default_limit) in cases.items():

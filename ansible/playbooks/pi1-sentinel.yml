@@ -1,0 +1,4 @@
+- name: Configure Pi 1 service sentinels
+  hosts: pi1_sentinel_nodes
+  gather_facts: true
+  roles: [pi1_sentinel]

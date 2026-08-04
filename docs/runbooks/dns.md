@@ -3,18 +3,25 @@
 ## Deployment status
 
 Both Raspberry Pi 1 boards are confirmed to have 256 MB RAM, below Pi-hole's
-supported 512 MB minimum. They are intentionally absent from managed inventory,
-and the role's memory guard must not be lowered. DietPi's smaller base system
-does not change this limit.
+supported 512 MB minimum. They are absent from the standard managed-node
+baseline and appear only in the purpose-specific `pi1_edge_nodes` inventory
+groups. The role's memory guard must not be lowered. DietPi's smaller base
+system does not change this limit.
 
-The 1 GB Raspberry Pi 2 is the selected single dedicated Pi-hole node. The
-current deployable baseline places it in `pihole_nodes` and uses the
-repository's bare-metal Pi-hole role. A worker-only K3s deployment is feasible,
+The 1 GB Raspberry Pi 2 is the selected single dedicated Pi-hole node,
+Tailscale endpoint, and Wake-on-LAN sender. The current automation places it in
+`pihole_nodes` and applies the bare-metal Pi-hole, Tailscale, and WoL roles.
+Tailscale currently provides the authenticated network path for SSH and fixed
+local wake commands. Remote filtered DNS is an approved but deferred extension
+until the listener, host-firewall, and tailnet-policy gates below are
+implemented. These are supporting edge services, not permission to place
+unrelated workloads on the resolver. A worker-only K3s deployment is feasible,
 but do not move it into the K3s group until the Pi-hole workload defines
 persistence, DNS port exposure, measured resource limits, and exclusive node
-placement. Before deploying the current baseline, replace the example address
-and upstreams, confirm the wired interface name, and add `pi2`'s web password
-hash to the encrypted production vault.
+placement. Before deploying the current baseline, replace the example address,
+upstreams, wired MAC addresses, and broadcast address; confirm the wired
+interface name; and add `pi2`'s web password hash and Tailscale enrollment
+credential to the encrypted production vault.
 
 Keep router/DHCP DNS unchanged until the Pi 2 passes direct validation. A
 single resolver is not redundant, so retain the documented emergency resolver
@@ -55,13 +62,125 @@ ssh pi2 'sudo systemctl --no-pager --full status pihole-FTL'
 ssh pi2 'sudo ss -lntup | grep ":53"'
 ```
 
-## Monitor from another node
+## Plan filtered DNS over Tailscale
 
-Keep the availability monitor off the resolver. In Uptime Kuma, make the
-primary check a DNS query that uses the Pi 2 address as the resolver and asks
-for a stable public record. Add the web interface as a secondary HTTP(S) check
-and ping only as a reachability hint. A successful ping or open TCP port does
-not prove that Pi-hole can answer a query.
+This deferred design uses direct tailnet DNS; it does not require the Pi 2 to
+advertise the home LAN as a subnet route. Do not enable it until every gate in
+this section is implemented and reviewed. Enroll the Pi 2 with a dedicated tag
+and ensure its Tailscale preferences include:
+
+```sh
+sudo tailscale set --accept-dns=false
+tailscale ip -4
+```
+
+`accept-dns=false` prevents the resolver from depending on the tailnet DNS
+service that it supplies. Record its stable `100.x.y.z` address without
+committing credentials or production addresses to the example inventory.
+
+The current Pi-hole template selects `eth0` and `LOCAL`. Before enabling
+tailnet DNS, extend the role so Pi-hole v6 uses `dns.listeningMode = "ALL"` for
+this host. `LOCAL` rejects requests from remote Tailscale peers because their
+addresses are not part of the Pi's local subnet. `ALL` must be paired with:
+
+- host-firewall permission for TCP and UDP port 53 from the wired LAN;
+- permission for TCP and UDP port 53 on `tailscale0`;
+- tailnet policy granting DNS only to the intended users or devices;
+- no Rogers gateway port forward for port 53; and
+- a strong protected Pi-hole web password.
+
+Do not expose the web interface merely to make DNS work. Web administration
+over Tailscale should receive its own explicit policy if it is desired.
+
+In the Tailscale admin console, open **DNS**, add the Pi 2 Tailscale address as
+a custom global nameserver, and enable **Override DNS servers**. Every tailnet
+client that accepts Tailscale DNS will use it, not only mobile devices. Keep
+Tailscale connected on the phone while away from home; an exit node is not
+required because only DNS needs to travel home.
+
+Validate on mobile data rather than home Wi-Fi:
+
+1. Confirm the phone is connected to Tailscale.
+2. Resolve a known public domain and a domain on the configured blocklist.
+3. Confirm the request reaches Pi-hole and the blocked answer matches policy.
+4. Confirm ordinary browsing still works.
+5. Disconnect Tailscale and confirm the phone returns to its normal network
+   resolver.
+
+Apps using their own DNS-over-HTTPS, Android Private DNS, browser Secure DNS,
+or iCloud Private Relay may bypass DNS-level filtering. DNS filtering also
+cannot reliably remove ads delivered from the same domains as desired content.
+
+If the Pi 2 or home Internet is unavailable, clients configured to use it lose
+tailnet DNS. Do not add a public resolver as a secondary nameserver because
+clients can use it while Pi-hole is healthy. Add a second filtered resolver
+before claiming remote DNS availability.
+
+References:
+
+- [Tailscale Pi-hole remote DNS guide](https://tailscale.com/docs/solutions/block-ads-all-devices-anywhere-using-raspberry-pi)
+- [Pi-hole v6 listening modes](https://docs.pi-hole.net/ftldns/configfile/#listeningmode)
+
+## Use the Pi 2 as the WoL sender
+
+Pi 2 sends the LAN broadcast itself, so remote WoL needs neither a Pi 1 hop nor
+a subnet router:
+
+```text
+remote phone or laptop
+  └─ Tailscale → pi2 fixed SSH command → LAN WoL broadcast
+```
+
+Configure the production `pi2` host with the wired target MAC addresses and
+LAN broadcast:
+
+```yaml
+pihole_nodes:
+  hosts:
+    pi2:
+      wol_targets:
+        - name: thinkpad
+          mac_address: THINKPAD_WIRED_MAC
+          broadcast_address: LAN_BROADCAST_ADDRESS
+        - name: thinkcentre
+          mac_address: THINKCENTRE_WIRED_MAC
+          broadcast_address: LAN_BROADCAST_ADDRESS
+```
+
+The role installs `wakeonlan` and fixed commands that send three packets one
+second apart by default. Invoke them from an authorized OpenSSH client:
+
+```sh
+ssh homelab@pi2 /usr/local/bin/wake-thinkcentre
+ssh homelab@pi2 /usr/local/bin/wake-thinkpad
+```
+
+Restrict tailnet SSH policy to the intended operator identities. The commands
+do not require root, and the Pi 2 does not expose an HTTP or message-broker
+wrapper for WoL.
+
+Subnet routing is optional and unnecessary for WoL. Enable it only when remote
+clients need direct access to additional LAN services. If selected, advertise
+the recorded production LAN CIDR, approve it in the Tailscale console, keep
+the default subnet-route SNAT, and add narrowly scoped tailnet policy. Do not
+configure an exit node or a Rogers gateway port forward for this use case.
+
+WoL cannot recover a target whose AC power is disconnected. Enable magic-packet
+wake in target firmware and Linux network configuration, verify Ethernet link
+remains present after shutdown, and test each fixed command from the LAN before
+depending on remote access.
+
+## Monitor from the Pi 1 sentinel
+
+Keep the availability monitor off the resolver. `pi1sentinel` directly queries
+the Pi 2 address over UDP and TCP DNS, asks for a stable public A record, and
+checks the web interface as a secondary HTTP signal. `pi1probe` may ping Pi 2
+as a reachability hint, but a successful ping does not prove Pi-hole can answer
+a query. The sentinel publishes outcomes to Healthchecks and stores no history
+locally.
+
+See [Pi 1 edge services](pi1-edge-services.md) for inventory, deployment,
+storage assignment, and controlled failure tests.
 
 Pulse can monitor the bare-metal Pi through its ARMv7 unified Linux agent if
 host resource history is useful. Install the agent only from the command

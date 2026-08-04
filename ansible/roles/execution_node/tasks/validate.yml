@@ -10,6 +10,20 @@
     HOME: "/home/{{ execution_node_user }}"
   loop: [codex, opencode, t3]
   changed_when: false
+- name: Verify Herdr is available
+  ansible.builtin.command:
+    argv:
+      - mise
+      - exec
+      - "herdr@{{ mise_herdr_version }}"
+      - --
+      - herdr
+      - --version
+  become_user: "{{ execution_node_user }}"
+  become: true
+  environment:
+    HOME: "/home/{{ execution_node_user }}"
+  changed_when: false
 - name: Verify T3 Code is running
   ansible.builtin.systemd_service:
     name: t3-code

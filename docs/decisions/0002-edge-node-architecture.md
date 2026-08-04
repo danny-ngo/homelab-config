@@ -2,7 +2,7 @@
 
 - Status: accepted, with Pi 2 deployment form reopened
 - Date: 2026-07-28
-- Last reviewed: 2026-07-29
+- Last reviewed: 2026-07-31
 
 ## Decision
 
@@ -11,9 +11,9 @@ run Pi-hole on either one: they are below Pi-hole's supported 512 MB minimum.
 A smaller operating system does not change that product requirement, so neither
 DietPi nor Alpine makes these boards supported Pi-hole hosts. Keep both outside
 the standard managed-node baseline because the repository's uv-managed Python
-bootstrap does not support ARMv6. Admit only the selected Wake-on-LAN and
-reachability-probe roles through the `pi1_edge_nodes` inventory parent, using
-Raspberry Pi OS distribution Python as an explicit exception.
+bootstrap does not support ARMv6. Admit only the selected reachability-probe
+and service-sentinel roles through the `pi1_edge_nodes` inventory parent,
+using Raspberry Pi OS distribution Python as an explicit exception.
 
 Retain the bare-metal Pi-hole role for future hosts with at least 512 MB RAM.
 For Raspberry Pi replacement hardware, prefer current Raspberry Pi OS Lite
@@ -25,6 +25,23 @@ Pi-hole cluster.
 
 Reserve the 1 GB Raspberry Pi 2 Model B for Pi-hole. It is the first and
 currently only selected resolver; do not schedule unrelated workloads on it.
+Tailscale and fixed Wake-on-LAN commands are the accepted supporting services
+on this node. Tailscale provides an authenticated path for invoking the local
+WoL commands directly. It is also the selected transport for future remote
+Pi-hole DNS, but that function remains disabled until the Pi-hole listener,
+host-firewall rules, and tailnet policy are implemented and reviewed. Keep
+Tailscale DNS acceptance disabled on the resolver itself to avoid a recursive
+dependency. The Pi 2 is not an exit node or subnet router. Subnet route
+advertisement remains an optional later expansion for broader LAN access and
+must use the recorded LAN CIDR, explicit tailnet policy, and the default source
+NAT unless a reviewed routing design replaces it.
+
+Do not install Tailscale on either 256 MB Pi 1. This keeps the ARMv6 exception
+small and avoids spending their limited memory on a remote-access daemon. Both
+remain stateless LAN leaves: one checks host reachability and the other checks
+the Pi 2's DNS and HTTP service behavior. Tailscale SSH is not required on
+either Pi 1.
+
 The existing Ansible implementation deploys Pi-hole on bare-metal Raspberry Pi
 OS Lite 32-bit and therefore keeps the Pi 2 out of the K3s worker group. A
 dedicated K3s-agent topology running only the Pi-hole pod is feasible and is no
@@ -140,6 +157,8 @@ Sources:
 - [Pi-hole installation methods](https://docs.pi-hole.net/main/basic-install/)
 - [Pi-hole v6 configuration reference](https://docs.pi-hole.net/ftldns/configfile/)
 - [Official Pi-hole Docker configuration](https://docs.pi-hole.net/docker/)
+- [Tailscale Pi-hole remote DNS guide](https://tailscale.com/docs/solutions/block-ads-all-devices-anywhere-using-raspberry-pi)
+- [Tailscale subnet routers](https://tailscale.com/docs/features/subnet-routers)
 - [Raspberry Pi model table](https://www.raspberrypi.com/documentation/computers/raspberry-pi.html)
 - [Raspberry Pi processor documentation](https://www.raspberrypi.com/documentation/computers/processors.html)
 - [Raspberry Pi OS downloads and compatibility](https://www.raspberrypi.com/software/operating-systems/)
@@ -186,25 +205,66 @@ stable latency and predictable recovery.
 The DHCP DNS server option is defined by
 [RFC 2132 section 3.8](https://datatracker.ietf.org/doc/html/rfc2132#section-3.8).
 
+## Planned tailnet DNS and implemented remote Wake-on-LAN
+
+The Pi 2 joins the tailnet with `accept-dns=false`. The current Pi-hole
+configuration remains local-only. Before tailnet DNS is enabled, add a reviewed
+`ALL` listener option plus host-firewall and tailnet-policy rules that limit TCP
+and UDP port 53 to the wired LAN and trusted tailnet clients. The Rogers gateway
+receives no DNS, SSH, or Tailscale port-forwarding rule.
+
+After those gates pass, the tailnet DNS configuration can use the Pi 2's stable
+Tailscale address as its custom global nameserver. Tailnet clients that accept
+Tailscale DNS would then receive the same filtering while away from home. This
+setting affects all such clients, not only phones. Do not add a public secondary
+resolver as a convenience fallback: clients may use it while Pi-hole is healthy
+and bypass filtering. Loss of the Pi 2 or the home Internet connection would
+remove remote DNS until a second filtered resolver exists.
+
+Remote Wake-on-LAN terminates on the Pi 2, which sends the LAN broadcast:
+
+```text
+remote phone or laptop
+  └─ Tailscale → Pi 2 fixed SSH command
+                  └─ UDP broadcast → target wired NIC
+```
+
+Invoke only the fixed commands:
+
+```sh
+ssh homelab@pi2 /usr/local/bin/wake-thinkcentre
+ssh homelab@pi2 /usr/local/bin/wake-thinkpad
+```
+
+Subnet routing is not needed for this path. If it is enabled later for other
+LAN services, continue invoking the fixed command on Pi 2; do not expect a
+Wake-on-LAN broadcast sent by a remote tailnet client to traverse the routed
+network.
+
 ## Raspberry Pi 1 disposition
 
-Assign one Pi 1 as a Wake-on-LAN box and the other as a reachability probe.
-These are optional leaf functions that tolerate slow ARMv6 hardware:
+Assign the 8 GB card to `pi1probe` and the 32 GB card to `pi1sentinel`. These
+are optional leaf functions that tolerate slow ARMv6 hardware:
 
-- The Wake-on-LAN role installs fixed, locally invoked commands for the
-  ThinkPad and ThinkCentre. It exposes no new network listener and remains
-  useful when either x86 host is shut down.
-- The probe sends ICMP echo requests and publishes successful target
-  heartbeats plus its own heartbeat to Healthchecks.io over outbound HTTPS.
-  Healthchecks owns late detection, incident state, recovery, maintenance
-  pauses, and the selected mobile integration.
+- The reachability probe sends ICMP echo requests and publishes successful
+  host heartbeats plus its own heartbeat to Healthchecks.io over outbound
+  HTTPS. It answers whether a LAN host or path is reachable.
+- The service sentinel queries the Pi 2 directly over UDP and TCP DNS, checks
+  its Pi-hole HTTP endpoint, and publishes separate service heartbeats plus its
+  own heartbeat. It answers whether the critical service works, not merely
+  whether its host responds.
 
-The probe is not a monitoring control plane. It stores no history, accepts no
-inbound requests, and sends no automatic wake command. A cloud-side self
-heartbeat makes loss of the probe visible, although shared power, router,
-switch, Internet, and external-service failures remain dependencies.
+Neither Pi 1 is a monitoring control plane. They store no history, accept no
+application requests, and send no automatic wake command. Cloud-side self
+heartbeats make loss of each leaf visible, although shared power, router,
+switch, Internet, and external-service failures remain dependencies. The
+sentinel cannot validate the remote Tailscale path because its checks originate
+on the LAN; that acceptance test must originate from a remote tailnet client.
 
-Use Raspberry Pi OS Lite 32-bit and prefer USB Ethernet. A Pi 1 A+ has no
+Use Raspberry Pi OS Lite 32-bit and prefer USB Ethernet. The 8 GB card is
+adequate for the probe's smaller package set; the 32 GB card gives the sentinel
+headroom for DNS tooling and future GPIO checks. Both roles remain stateless
+and keep monitoring history off-node. A Pi 1 A+ has no
 built-in Ethernet and only one USB port, so projects needing networking plus a
 USB peripheral require a powered hub. Keep these hosts out of `linux_nodes`,
 K3s, Pi-hole, Tailscale, storage, dotfiles, and language-toolchain roles.
@@ -360,8 +420,8 @@ Sources:
 ## Remaining implementation inputs
 
 The operator inputs that remain after this decision—Pi 2 deployment form,
-second-resolver selection, router behavior, and upstream/local DNS policy—are
-tracked only in
+second-resolver selection, router behavior, upstream/local DNS policy, and the
+production tailnet ACL details—are tracked only in
 [Open homelab decisions](open-decisions.md). That file is the canonical
 backlog; this accepted record retains the rationale and settled role selection.
 
@@ -370,11 +430,16 @@ backlog; this accepted record retains the rationale and settled role selection.
 - The Pi 2 is the selected first Pi-hole host; deployment still requires
   production addresses, interface confirmation, upstream policy, and a vaulted
   web password hash.
+- The Pi 2 is the direct Wake-on-LAN sender and the planned Tailscale endpoint
+  for remote filtered DNS; both Pi 1 boards remain off the tailnet.
+- Remote Wake-on-LAN depends on the Pi 2 and the tailnet today. Remote DNS will
+  share those dependencies only after its listener, firewall, and policy gates
+  are completed.
 - With two future hosts, DNS can remain available during one Pi-hole update or
   node failure, subject to client retry behavior and shared dependencies.
 - Both 256 MB Pi 1 boards are excluded from production DNS and the standard
   managed-node baseline. Purpose-specific inventory groups admit only the
-  selected Wake-on-LAN and reachability-probe roles.
+  selected service-sentinel and reachability-probe roles.
 - Raspberry Pi OS and bare metal use more disk than Alpine alone but reduce
   operational variance and runtime layers.
 - The Pi 2 remains outside the example K3s worker group until a K3s Pi-hole

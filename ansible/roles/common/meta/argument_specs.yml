@@ -1,7 +1,7 @@
 argument_specs:
   main:
     options:
-      common_packages: {type: list, elements: str}
+      operator_linux_packages: {type: list, elements: str}
       common_ssh_service_name: {type: str}
       common_ghostty_terminfo_enabled: {type: bool}
       common_ghostty_terminfo_database: {type: path}

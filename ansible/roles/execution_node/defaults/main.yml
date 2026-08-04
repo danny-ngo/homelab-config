@@ -10,6 +10,7 @@ execution_node_developer_cli_packages:
 mise_node_version: '24'
 mise_go_version: '1.24'
 mise_rust_version: stable
+mise_herdr_version: 0.7.5
 docker_log_max_size: 10m
 docker_log_max_files: '3'
 t3_code_host: 127.0.0.1

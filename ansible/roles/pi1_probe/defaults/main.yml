@@ -3,5 +3,6 @@ pi1_probe_heartbeat_url: ""
 pi1_probe_interval_seconds: 60
 pi1_probe_ping_timeout_seconds: 2
 pi1_probe_http_timeout_seconds: 10
+pi1_probe_boot_media_gb: 8
 pi1_probe_user: pi1-probe
 pi1_probe_config_dir: /etc/pi1-probe

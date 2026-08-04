@@ -2,4 +2,4 @@
 
 # Pi 1 nodes use distribution Python and deliberately skip the standard
 # uv-managed Linux baseline.
-bootstrap_run_playbook ansible/playbooks/pi1-wol.yml pi1_wol_nodes
+bootstrap_run_playbook ansible/playbooks/pi1-sentinel.yml pi1_sentinel_nodes

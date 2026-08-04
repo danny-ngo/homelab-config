@@ -66,7 +66,7 @@ The automation must:
 | `k3s_workers_supported` | `rpi3b` | `arm64` | Required | Agent |
 | Excluded | `pi2` | `armhf` / ARMv7 | Never a cluster node | Dedicated bare-metal Pi-hole |
 | Excluded | `thinkcentre` | `amd64` | Never a cluster node | Remote development only |
-| Excluded | two Pi 1 boards | `armv6` | Never cluster nodes | Optional noncritical projects only |
+| Excluded | two Pi 1 boards | `armv6` | Never cluster nodes | Reachability probe and Pi 2 service sentinel only |
 
 Hostnames are illustrative inventory identifiers. Role assignment must never depend on matching these strings.
 

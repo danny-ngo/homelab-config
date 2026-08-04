@@ -1,55 +1,79 @@
-# Raspberry Pi 1 Wake-on-LAN and reachability probe
+# Raspberry Pi 1 reachability probe and service sentinel
 
-The two 256 MB Raspberry Pi 1 Model A+ boards have narrow, optional roles:
+The two 256 MB Raspberry Pi 1 Model A+ boards remain small, stateless LAN
+leaves with distinct responsibilities:
 
-- `pi1wol` sends fixed Wake-on-LAN magic packets to the ThinkPad and
-  ThinkCentre.
-- `pi1probe` pings both targets and publishes successful heartbeats to
-  Healthchecks.io, which owns missed-heartbeat detection and mobile delivery.
+- `pi1probe`, using the available 8 GB card, checks whether selected hosts are
+  reachable with ICMP and publishes successful target and self heartbeats.
+- `pi1sentinel`, using the available 32 GB card, checks whether Pi 2 actually
+  answers DNS over UDP and TCP and serves its Pi-hole HTTP endpoint. It
+  publishes successful service and self heartbeats.
 
-The example inventory assigns one role to each board. One board may belong to
-both inventory groups if fewer devices are preferred; the workloads are tiny.
-Separate boards provide a cleaner failure boundary but require another SD card,
-power supply, and USB network adapter.
+Healthchecks.io owns missed-heartbeat detection, incident history, recovery,
+maintenance pauses, and notifications. Neither Pi stores monitoring history,
+runs a dashboard, or triggers Wake-on-LAN automatically. Pi 2 now owns the
+fixed WoL commands; see [DNS operations](dns.md).
 
-Neither role runs a server reachable from the Internet. Wake commands are
-invoked over an existing SSH connection, and the probe makes outbound HTTPS
-requests only. MQTT, Docker, K3s, uv, and uv-managed Python are deliberately
-absent.
-
-## Architecture and limits
+## Responsibility and failure boundaries
 
 ```text
-MacBook or phone over LAN/VPN
-  └─ SSH → pi1wol → UDP magic packet → target wired NIC
-
-pi1probe
+pi1probe (8 GB)
   ├─ ICMP echo → ThinkPad
   ├─ ICMP echo → ThinkCentre
   └─ HTTPS success heartbeats → Healthchecks.io
-                                  └─ mobile integration
+
+pi1sentinel (32 GB)
+  ├─ UDP DNS query → Pi 2 Pi-hole
+  ├─ TCP DNS query → Pi 2 Pi-hole
+  ├─ HTTP request → Pi 2 Pi-hole
+  └─ HTTPS success heartbeats → Healthchecks.io
 ```
 
-A missed ping means **unreachable**, not necessarily powered off. A disconnected
-cable, firewall rule, frozen OS, failed switch, or power loss can have the same
-result. The probe does not automatically wake a failed machine: alerting and
-recovery remain separate so a planned shutdown cannot create a wake loop.
+The probe answers “can this host or LAN path be reached?” A missed ping does
+not distinguish a planned shutdown from a disconnected cable, firewall rule,
+frozen OS, or power failure. Pause a target's check before planned downtime.
 
-The Pi 1 A+ has one USB port and no built-in Ethernet. Prefer a supported USB
-Ethernet adapter connected to the LAN switch. USB Wi-Fi can work, but broadcast
-handling and recovery are less predictable. The Pi never plugs directly into a
-target computer.
+The sentinel answers “does the Pi 2 service work?” A successful Pi 2 ping is
+not enough: both DNS transports must return a non-empty A-record answer, and
+the configured HTTP URL must return a successful response. The sentinel does
+not validate filtered DNS from a remote Tailscale client because its checks
+originate on the LAN. Keep the mobile-data acceptance test in the DNS runbook.
+
+Give each board its own power supply and switch port when practical. Both
+self-heartbeats are required to distinguish a target failure from loss of the
+monitoring leaf, LAN, Internet connection, or Healthchecks itself.
+
+## Storage assignment and write policy
+
+Raspberry Pi OS Lite 32-bit and the small runtime package sets fit on either
+card. Use the cards as follows:
+
+| Node | Card | Local payload |
+| --- | --- | --- |
+| `pi1probe` | 8 GB | Raspberry Pi OS Lite, `iputils-ping`, `curl`, configuration, and bounded system logs |
+| `pi1sentinel` | 32 GB | Raspberry Pi OS Lite, `dnsutils`, `curl`, configuration, and bounded system logs |
+
+The probe receives the smaller card because it has the narrower package set
+and no planned expansion. The sentinel receives the larger card to leave room
+for future GPIO sensor tooling and diagnostics, not because its current role
+needs 32 GB. Do not add local time-series databases, packet-capture archives,
+or unbounded application logs. Configuration is reproducible from Ansible and
+history remains in Healthchecks, so neither SD card needs a file-level backup.
 
 ## Prepare Raspberry Pi OS
 
 Use Raspberry Pi Imager to install Raspberry Pi OS Lite 32-bit. Configure the
 final hostname, the `homelab` administrator, an SSH public key, and the
-`America/Toronto` timezone before first boot. Reserve each network adapter's
-address in DHCP.
+`America/Toronto` timezone before first boot. Reserve each USB Ethernet
+adapter's address in DHCP.
+
+The Pi 1 A+ has one USB port and no built-in Ethernet. Prefer a supported USB
+Ethernet adapter connected to the LAN switch. A project that later needs both
+networking and a USB peripheral requires a powered hub.
 
 The standard Linux installer and `bootstrap.sh --prepare-only` must not run on
-ARMv6 because uv-managed Python 3.14 is unavailable. Install only the
-distribution Python required by Ansible:
+ARMv6 because uv-managed Python 3.14 is unavailable. Install only distribution
+Python for Ansible:
 
 ```sh
 ssh homelab@PI1_LAN_IP
@@ -59,98 +83,29 @@ uname -m
 /usr/bin/python3 --version
 ```
 
-`uname -m` must report `armv6l`. Verify the SSH host fingerprint through the
-local console, then add the verified key to the MacBook controller's
-`known_hosts`.
+`uname -m` must report `armv6l`. Verify each SSH host fingerprint through the
+local console, then add it to the MacBook controller's `known_hosts`.
 
-The production inventory must keep both Pi 1 groups outside `linux_nodes`.
+The production inventory must keep both groups outside `linux_nodes`.
 `pi1_edge_nodes` selects `/usr/bin/python3` as the documented ARMv6 exception;
 it does not inherit the common, storage, firewall, dotfiles, Tailscale, or
 language-toolchain roles.
 
-## Configure the Wake-on-LAN targets
+## Configure Healthchecks
 
-Wake-on-LAN must work from an ordinary LAN machine before provisioning the Pi.
-For each target:
-
-1. Connect its Wake-on-LAN-capable NIC by Ethernet.
-2. Enable Wake-on-LAN in firmware.
-3. Disable firmware settings such as ErP or deep sleep if they remove NIC
-   standby power.
-4. On Linux, run `sudo ethtool INTERFACE` and confirm that magic-packet wake
-   mode `g` is supported and enabled. Persist `ethtool -s INTERFACE wol g`
-   through the target's network manager when necessary.
-5. Shut down the target and verify that the Ethernet link remains active.
-6. Test from another machine on the same LAN.
-
-WoL cannot recover a target whose AC power is disconnected. Configure the
-ThinkCentre's firmware power-loss policy separately if it must start after an
-outage. ThinkPad behaviour can depend on AC power, battery state, dock, and
-network adapter.
-
-Replace the example MAC addresses, Pi address, and broadcast addresses in
-`ansible/inventories/production/hosts.yml`:
-
-```yaml
-pi1_wol_nodes:
-  hosts:
-    pi1wol:
-      ansible_host: PI1_WOL_LAN_IP
-      expected_os_family: Debian
-      expected_architecture: armv6l
-      pi1_wol_targets:
-        - name: thinkpad
-          mac_address: THINKPAD_WIRED_MAC
-          broadcast_address: LAN_BROADCAST_ADDRESS
-        - name: thinkcentre
-          mac_address: THINKCENTRE_WIRED_MAC
-          broadcast_address: LAN_BROADCAST_ADDRESS
-```
-
-The role installs `wakeonlan` and fixed commands named after each target. It
-sends three packets one second apart by default. The package uses UDP and does
-not require root privileges.
-
-Apply and validate:
-
-```sh
-./bootstrap.sh --profile pi1-wol --limit pi1wol --check
-./bootstrap.sh --profile pi1-wol --limit pi1wol
-make validate LIMIT=pi1wol
-```
-
-Wake a target from the MacBook:
-
-```sh
-ssh pi1wol /usr/local/bin/wake-thinkpad
-ssh pi1wol /usr/local/bin/wake-thinkcentre
-```
-
-A phone can invoke the same fixed SSH commands while connected to the home LAN
-or an independently operated VPN. Do not publish SSH, an HTTP wrapper, or a
-message broker directly to the Internet merely to expose these commands.
-
-## Configure Healthchecks and mobile delivery
-
-Create three separate Healthchecks.io checks:
+Create these checks with a one-minute period and at least a two-minute grace:
 
 - `pi1probe-alive`
 - `thinkpad-reachable`
 - `thinkcentre-reachable`
+- `pi1sentinel-alive`
+- `pi2-dns-udp`
+- `pi2-dns-tcp`
+- `pi2-http`
 
-Use a one-minute period and at least a two-minute grace time. The Ansible role's
-default probe interval is 60 seconds. Healthchecks controls the late threshold,
-incident state, recovery message, maintenance pause, and notification
-integration.
-
-Attach the desired phone path to the checks:
-
-- Pushover for a dedicated push-notification client;
-- Telegram if it is already an accepted alert channel; or
-- email for the smallest setup.
-
-Copy each check's unique ping URL into the encrypted production Vault. The URLs
-are bearer secrets: anyone who knows one can forge a successful heartbeat.
+Attach the selected notification integration. Treat every ping URL as a bearer
+secret: anyone who knows one can forge a successful heartbeat. Store the URLs
+only in the encrypted production Vault:
 
 ```yaml
 vault_pi1_probe_healthchecks_urls:
@@ -158,16 +113,25 @@ vault_pi1_probe_healthchecks_urls:
     probe: https://hc-ping.com/PROBE_UUID
     thinkpad: https://hc-ping.com/THINKPAD_UUID
     thinkcentre: https://hc-ping.com/THINKCENTRE_UUID
+
+vault_pi1_sentinel_healthchecks_urls:
+  pi1sentinel:
+    dns_udp: https://hc-ping.com/DNS_UDP_UUID
+    dns_tcp: https://hc-ping.com/DNS_TCP_UUID
+    http: https://hc-ping.com/HTTP_UUID
+    sentinel: https://hc-ping.com/SENTINEL_UUID
 ```
 
-Edit and encrypt through Ansible Vault; never commit plaintext URLs:
+Edit the Vault without committing plaintext URLs:
 
 ```sh
 ansible-vault edit ansible/inventories/production/group_vars/all/vault.yml
 ```
 
-Configure the target addresses in production inventory. Each target entry
-looks up its URL from the encrypted mapping:
+## Configure the reachability probe
+
+Use stable LAN addresses. Monitor intentionally powered-off targets only when
+their Healthchecks checks will be paused during planned shutdowns:
 
 ```yaml
 pi1_probe_nodes:
@@ -176,6 +140,7 @@ pi1_probe_nodes:
       ansible_host: PI1_PROBE_LAN_IP
       expected_os_family: Debian
       expected_architecture: armv6l
+      pi1_probe_boot_media_gb: 8
       pi1_probe_targets:
         - name: thinkpad
           address: THINKPAD_LAN_IP
@@ -197,62 +162,95 @@ Apply and validate:
 make validate LIMIT=pi1probe
 ```
 
-The role installs only `iputils-ping` and `curl`. A hardened systemd service
-runs as the unprivileged `pi1-probe` account. The Healthchecks URLs are stored
-in group-readable, non-world-readable files under `/etc/pi1-probe`.
+## Configure the service sentinel
+
+Point the DNS checks directly at Pi 2 instead of using the sentinel's default
+resolver. Select a stable public query name expected to return an A record. The
+HTTP URL may use HTTP on the trusted LAN; Healthchecks publishing always uses
+HTTPS.
+
+The sentinel's own name resolution must not depend exclusively on Pi 2.
+Configure an independent resolver only for this monitoring leaf so a Pi 2 DNS
+failure does not prevent it from publishing its self-heartbeat.
+
+```yaml
+pi1_sentinel_nodes:
+  hosts:
+    pi1sentinel:
+      ansible_host: PI1_SENTINEL_LAN_IP
+      expected_os_family: Debian
+      expected_architecture: armv6l
+      pi1_sentinel_boot_media_gb: 32
+      pi1_sentinel_dns_server: PI2_LAN_IP
+      pi1_sentinel_dns_query_name: example.com
+      pi1_sentinel_http_url: http://PI2_LAN_IP/admin/
+      pi1_sentinel_healthchecks_urls: >-
+        {{ vault_pi1_sentinel_healthchecks_urls[inventory_hostname] }}
+```
+
+Apply and validate:
+
+```sh
+./bootstrap.sh --profile pi1-sentinel --limit pi1sentinel --check
+./bootstrap.sh --profile pi1-sentinel --limit pi1sentinel
+make validate LIMIT=pi1sentinel
+```
+
+The service runs as the unprivileged `pi1-sentinel` account. Protected
+heartbeat URLs live under `/etc/pi1-sentinel`; the program and systemd unit
+contain no secrets.
 
 ## Operate and test
 
-Inspect the local service without displaying its protected URL files:
+Inspect services without displaying protected heartbeat files:
 
 ```sh
-ssh pi1probe 'systemctl --no-pager --full status pi1-ping-probe'
-ssh pi1probe 'journalctl --unit pi1-ping-probe --since "30 minutes ago"'
+ssh pi1probe \
+  'systemctl --no-pager --full status pi1-ping-probe'
+ssh pi1sentinel \
+  'systemctl --no-pager --full status pi1-service-sentinel'
+ssh pi1sentinel \
+  'journalctl --unit pi1-service-sentinel --since "30 minutes ago"'
 ```
 
-Perform a controlled end-to-end test:
+Test the reachability path by pausing planned-maintenance alerts, shutting down
+one target, waiting through the Healthchecks grace period, and confirming only
+that target becomes unavailable. Restore the target with the fixed command now
+installed on Pi 2:
 
-1. Confirm all three Healthchecks checks are up.
-2. Pause unrelated maintenance and shut down one target.
-3. Wait through the configured period and grace time.
-4. Confirm that only that target alerts.
-5. Invoke its Wake-on-LAN command.
-6. Confirm the target becomes reachable and a recovery notification arrives.
-7. During a separate test, stop `pi1-ping-probe` briefly. All target
-   heartbeats and the probe heartbeat should become late.
-8. Restart the service before the test window grows unexpectedly:
+```sh
+ssh pi2 /usr/local/bin/wake-thinkcentre
+```
+
+Test the sentinel during a maintenance window:
+
+1. Confirm all four sentinel checks are up.
+2. Stop `pihole-FTL` on Pi 2.
+3. Confirm the UDP, TCP, and HTTP checks become late while
+   `pi1sentinel-alive` remains up.
+4. Restart `pihole-FTL`.
+5. Confirm all three service checks recover.
+6. Stop the sentinel service briefly and confirm its self-check becomes late.
+7. Restart it before the test window grows unexpectedly:
 
    ```sh
-   ssh pi1probe 'sudo systemctl restart pi1-ping-probe'
+   ssh pi1sentinel \
+     'sudo systemctl restart pi1-service-sentinel'
    ```
-
-If only one target check becomes late, investigate that target or its network
-path. If both target checks and `pi1probe-alive` become late together,
-investigate the probe, its power, the switch/router, Internet access, or
-Healthchecks itself.
-
-Pause the relevant Healthchecks check before a planned shutdown. Do not shorten
-the grace time until several days of normal network jitter have been observed.
 
 ## Recovery
 
 Both roles are stateless. After an SD-card failure:
 
-1. Reimage Raspberry Pi OS Lite 32-bit.
+1. Reimage Raspberry Pi OS Lite 32-bit onto the assigned card.
 2. Restore the hostname, administrator key, and DHCP reservation.
 3. Install distribution `python3`.
 4. Verify the new SSH host key locally and update `known_hosts`.
 5. Reapply the appropriate profile from the MacBook.
-6. Repeat the end-to-end test.
-
-Healthchecks owns incident history and notification configuration. Ansible
-owns the Pi packages, commands, protected endpoint files, and systemd service.
+6. Repeat its controlled end-to-end test.
 
 References:
 
 - [Raspberry Pi OS documentation](https://www.raspberrypi.com/documentation/computers/os.html)
-- [Debian wakeonlan package](https://packages.debian.org/stable/wakeonlan)
-- [Linux Wake-on-LAN interface](https://docs.kernel.org/networking/ethtool-netlink.html)
 - [Healthchecks.io documentation](https://healthchecks.io/docs/)
 - [Healthchecks notification integrations](https://healthchecks.io/docs/configuring_notifications/)
-- [Pushover message API](https://pushover.net/api)

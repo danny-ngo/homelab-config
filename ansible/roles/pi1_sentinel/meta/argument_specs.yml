@@ -1,0 +1,13 @@
+argument_specs:
+  main:
+    options:
+      pi1_sentinel_dns_server: {type: str, required: true}
+      pi1_sentinel_dns_query_name: {type: str, required: true}
+      pi1_sentinel_http_url: {type: str, required: true}
+      pi1_sentinel_healthchecks_urls: {type: dict, required: true}
+      pi1_sentinel_interval_seconds: {type: int}
+      pi1_sentinel_dns_timeout_seconds: {type: int}
+      pi1_sentinel_http_timeout_seconds: {type: int}
+      pi1_sentinel_boot_media_gb: {type: int}
+      pi1_sentinel_user: {type: str}
+      pi1_sentinel_config_dir: {type: path}
