@@ -1,3 +1,8 @@
+---
+layout: default
+title: "Handoff: make the dotfiles repository configuration-only"
+---
+
 # Handoff: make the dotfiles repository configuration-only
 
 ## Assignment

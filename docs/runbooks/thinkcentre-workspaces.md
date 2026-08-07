@@ -1,3 +1,8 @@
+---
+layout: default
+title: ThinkCentre workspace durability
+---
+
 # ThinkCentre workspace durability
 
 The ThinkCentre is an always-on remote development server, but it must remain

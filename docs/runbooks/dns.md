@@ -1,3 +1,8 @@
+---
+layout: default
+title: DNS operations
+---
+
 # DNS operations
 
 ## Deployment status
@@ -86,7 +91,7 @@ addresses are not part of the Pi's local subnet. `ALL` must be paired with:
 - host-firewall permission for TCP and UDP port 53 from the wired LAN;
 - permission for TCP and UDP port 53 on `tailscale0`;
 - tailnet policy granting DNS only to the intended users or devices;
-- no Rogers gateway port forward for port 53; and
+- no ISP-gateway port forward for port 53; and
 - a strong protected Pi-hole web password.
 
 Do not expose the web interface merely to make DNS work. Web administration
@@ -163,7 +168,7 @@ Subnet routing is optional and unnecessary for WoL. Enable it only when remote
 clients need direct access to additional LAN services. If selected, advertise
 the recorded production LAN CIDR, approve it in the Tailscale console, keep
 the default subnet-route SNAT, and add narrowly scoped tailnet policy. Do not
-configure an exit node or a Rogers gateway port forward for this use case.
+configure an exit node or an ISP-gateway port forward for this use case.
 
 WoL cannot recover a target whose AC power is disconnected. Enable magic-packet
 wake in target firmware and Linux network configuration, verify Ethernet link

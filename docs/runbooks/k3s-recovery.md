@@ -1,3 +1,8 @@
+---
+layout: default
+title: K3s recovery
+---
+
 # K3s recovery
 
 The ThinkPad is the single K3s server. Its data directory and node token are

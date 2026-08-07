@@ -1,3 +1,8 @@
+---
+layout: default
+title: Open homelab decisions
+---
+
 # Open homelab decisions
 
 - Status: active backlog
