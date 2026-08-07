@@ -2,6 +2,9 @@
 
 Safe, inventory-driven Ansible automation for the Phase 0–4 homelab baseline.
 
+[Browse the rendered documentation](https://danny-ngo.github.io/homelab-config/),
+including architecture decisions, installation guides, and operations runbooks.
+
 `install.sh` is the standalone remote entry point for a fresh machine. On
 macOS, it installs Homebrew and Git when needed, creates `~/src` by default,
 lets `git clone` create a persistent `~/src/homelab-config` checkout, and runs

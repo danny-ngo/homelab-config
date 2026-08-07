@@ -1,3 +1,8 @@
+---
+layout: default
+title: "0002: Raspberry Pi DNS and constrained edge nodes"
+---
+
 # 0002: Raspberry Pi DNS and constrained edge nodes
 
 - Status: accepted, with Pi 2 deployment form reopened
@@ -210,7 +215,7 @@ The DHCP DNS server option is defined by
 The Pi 2 joins the tailnet with `accept-dns=false`. The current Pi-hole
 configuration remains local-only. Before tailnet DNS is enabled, add a reviewed
 `ALL` listener option plus host-firewall and tailnet-policy rules that limit TCP
-and UDP port 53 to the wired LAN and trusted tailnet clients. The Rogers gateway
+and UDP port 53 to the wired LAN and trusted tailnet clients. The ISP gateway
 receives no DNS, SSH, or Tailscale port-forwarding rule.
 
 After those gates pass, the tailnet DNS configuration can use the Pi 2's stable

@@ -1,3 +1,8 @@
+---
+layout: default
+title: Bootstrap Python, Ansible, and uv flow
+---
+
 # Bootstrap Python, Ansible, and uv flow
 
 This repository has one controller and two deliberately different bootstrap

@@ -1,3 +1,8 @@
+---
+layout: default
+title: "0003: Python, Ansible, and uv bootstrap ownership"
+---
+
 # 0003: Python, Ansible, and uv bootstrap ownership
 
 - Status: accepted

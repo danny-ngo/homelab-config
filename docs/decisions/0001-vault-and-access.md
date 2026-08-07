@@ -1,3 +1,8 @@
+---
+layout: default
+title: Vault and access
+---
+
 # Vault and access
 
 Secrets remain in Ansible Vault; host-key checking stays strict. Linux uses

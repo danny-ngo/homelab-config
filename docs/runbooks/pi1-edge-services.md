@@ -1,3 +1,8 @@
+---
+layout: default
+title: Raspberry Pi 1 reachability probe and service sentinel
+---
+
 # Raspberry Pi 1 reachability probe and service sentinel
 
 The two 256 MB Raspberry Pi 1 Model A+ boards remain small, stateless LAN

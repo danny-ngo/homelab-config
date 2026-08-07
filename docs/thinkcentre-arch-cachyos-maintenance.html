@@ -208,7 +208,7 @@
         <section id="principles">
           <p class="section-label">01 · Posture</p>
           <h2>Keep failure cheap and observable</h2>
-          <p class="section-intro">The machine is an always-on remote development appliance, not a source-of-truth host. Its availability matters while work is running, but recovery should favour a clean boot or rebuild over heroic repair. Project source must be recoverable from GitHub; see the <a href="runbooks/thinkcentre-workspaces.md">workspace durability policy</a>.</p>
+          <p class="section-intro">The machine is an always-on remote development appliance, not a source-of-truth host. Its availability matters while work is running, but recovery should favour a clean boot or rebuild over heroic repair. Project source must be recoverable from GitHub; see the <a href="runbooks/thinkcentre-workspaces.html">workspace durability policy</a>.</p>
           <div class="grid-2">
             <article class="card"><h3>Always true</h3><ul><li>Complete upgrades only: <code>pacman -Syu</code>.</li><li>CachyOS repositories remain above Arch repositories.</li><li>Primary and fallback kernels stay installed.</li><li>Configuration is committed before risky changes.</li><li>No automatic reboot after package updates.</li></ul></article>
             <article class="card"><h3>Never normal</h3><ul><li>Running <code>pacman -Sy package</code>.</li><li>Deleting the fallback kernel to save space.</li><li>Ignoring pacman, initramfs or DKMS errors.</li><li>Running cleanup with <code>--volumes</code> casually.</li><li>Keeping unique credentials or project state only here.</li></ul></article>
@@ -620,7 +620,7 @@ Follow-up:</code></pre>
 
     <footer>
       <span>Artifact: ThinkCentre Tiny maintenance runbook</span>
-      <span>Companion: <a href="thinkcentre-arch-cachyos-install.html">installation guide</a></span>
+      <span><a href="index.html">Documentation home</a> · Companion: <a href="thinkcentre-arch-cachyos-install.html">installation guide</a></span>
     </footer>
   </div>
 </body>

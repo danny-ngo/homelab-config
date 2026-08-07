@@ -1,0 +1,22 @@
+title: Homelab configuration
+description: >-
+  Architecture decisions, installation guides, and operations runbooks for a
+  rebuildable homelab.
+url: https://danny-ngo.github.io
+baseurl: /homelab-config
+repository: danny-ngo/homelab-config
+
+theme: minima
+
+plugins:
+  - jekyll-relative-links
+  - jekyll-seo-tag
+
+relative_links:
+  enabled: true
+  collections: true
+
+titles_from_headings:
+  enabled: false
+
+strict_front_matter: true
