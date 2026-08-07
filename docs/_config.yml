@@ -8,6 +8,11 @@ repository: danny-ngo/homelab-config
 
 theme: minima
 
+header_pages:
+  - bootstrap-python-flow.md
+  - runbooks/dns.md
+  - decisions/open-decisions.md
+
 plugins:
   - jekyll-relative-links
   - jekyll-seo-tag
