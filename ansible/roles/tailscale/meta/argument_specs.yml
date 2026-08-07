@@ -1,2 +1,11 @@
 argument_specs:
-  main: {options: {tailscale_tag: {type: str, required: false}}}
+  main:
+    options:
+      tailscale_tag: {type: str, required: false}
+      tailscale_accept_dns: {type: bool}
+      tailscale_ssh: {type: bool}
+      tailscale_up_timeout: {type: str}
+      tailscale_auth_key_path: {type: path}
+      vault_tailscale_auth_keys: {type: dict, required: false}
+      tailscale_apt_keyring_url: {type: str}
+      tailscale_apt_repository_url: {type: str}

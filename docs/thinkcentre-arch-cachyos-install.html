@@ -1,0 +1,752 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <meta name="description" content="A complete installation guide for a minimal Arch Linux ThinkCentre Tiny execution node using the CachyOS package repositories and kernel.">
+  <title>ThinkCentre Tiny · Arch + CachyOS Installation Guide</title>
+  <style>
+    :root {
+      --bg: #f5f2eb;
+      --paper: #fffdf8;
+      --ink: #17201d;
+      --muted: #66706b;
+      --line: #d9d8cf;
+      --soft: #eceae2;
+      --accent: #0c7358;
+      --accent-soft: #dcefe7;
+      --blue: #245f87;
+      --blue-soft: #e1edf5;
+      --amber: #8a5a08;
+      --amber-soft: #f7ecd2;
+      --red: #963f35;
+      --red-soft: #f5e1dd;
+      --code: #14221d;
+      --code-ink: #e9f4ef;
+      color-scheme: light;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: var(--bg);
+      color: var(--ink);
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #111714;
+        --paper: #17201c;
+        --ink: #edf3ef;
+        --muted: #a4b0a9;
+        --line: #34413b;
+        --soft: #202b26;
+        --accent: #73d6b3;
+        --accent-soft: #163c31;
+        --blue: #8fc7ee;
+        --blue-soft: #193448;
+        --amber: #f0c66c;
+        --amber-soft: #413316;
+        --red: #f19c90;
+        --red-soft: #482723;
+        --code: #09110e;
+        --code-ink: #dcf0e7;
+        color-scheme: dark;
+      }
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; scroll-padding-top: 1.5rem; }
+    body { margin: 0; background: var(--bg); color: var(--ink); }
+    a { color: var(--blue); text-underline-offset: .18em; }
+    a:hover { text-decoration-thickness: 2px; }
+    a:focus-visible, summary:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
+    code, pre { font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace; }
+    code { font-size: .92em; }
+    :not(pre) > code { background: var(--soft); border-radius: .3rem; padding: .1em .34em; }
+    pre { margin: .85rem 0 0; padding: 1rem 1.1rem; border-radius: .7rem; overflow-x: auto; background: var(--code); color: var(--code-ink); font-size: .82rem; line-height: 1.55; box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--code-ink) 10%, transparent); }
+    .page { width: min(1320px, 100%); margin: 0 auto; padding: 2rem clamp(1rem, 3vw, 2.5rem) 5rem; }
+    .masthead { border-bottom: 1px solid var(--line); padding: 2.5rem 0 2rem; }
+    .kicker, .section-label, dt, th { font-size: .74rem; line-height: 1.3; font-weight: 750; letter-spacing: .09em; text-transform: uppercase; }
+    .kicker { color: var(--accent); margin: 0 0 .8rem; }
+    h1 { max-width: 14ch; margin: 0; font-size: clamp(2.4rem, 7vw, 5.5rem); line-height: .96; letter-spacing: -.065em; font-weight: 760; }
+    .lede { max-width: 72ch; margin: 1.35rem 0 0; color: var(--muted); font-size: clamp(1rem, 2vw, 1.2rem); line-height: 1.65; }
+    .meta { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: 1.4rem; }
+    .pill { display: inline-flex; align-items: center; gap: .42rem; padding: .38rem .68rem; border: 1px solid var(--line); border-radius: 999px; background: var(--paper); font-size: .8rem; }
+    .pill::before { content: ""; width: .48rem; height: .48rem; border-radius: 50%; background: var(--accent); }
+    .summary { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .75rem; margin: 1.25rem 0 2rem; }
+    .summary article { border: 1px solid var(--line); border-radius: .8rem; padding: .9rem; background: var(--paper); }
+    .summary span { display: block; color: var(--muted); font-size: .76rem; }
+    .summary strong { display: block; margin-top: .3rem; font-size: 1rem; line-height: 1.3; }
+    .layout { display: grid; grid-template-columns: 255px minmax(0, 1fr); gap: clamp(1.5rem, 4vw, 4rem); align-items: start; }
+    .toc { position: sticky; top: 1rem; border: 1px solid var(--line); border-radius: .8rem; background: var(--paper); padding: 1rem; }
+    .toc p { margin: 0 0 .7rem; }
+    .toc ol { list-style: none; padding: 0; margin: 0; counter-reset: toc; }
+    .toc li { counter-increment: toc; border-top: 1px solid var(--line); }
+    .toc li:first-child { border-top: 0; }
+    .toc a { display: grid; grid-template-columns: 1.6rem 1fr; gap: .25rem; padding: .55rem 0; color: var(--ink); text-decoration: none; font-size: .82rem; line-height: 1.3; }
+    .toc a::before { content: counter(toc, decimal-leading-zero); color: var(--muted); font-variant-numeric: tabular-nums; }
+    .toc .runbook { margin-top: .8rem; display: block; padding: .65rem .75rem; border-radius: .55rem; background: var(--accent); color: #fff; text-align: center; font-weight: 700; text-decoration: none; }
+    main { min-width: 0; }
+    section { padding: 2rem 0; border-bottom: 1px solid var(--line); }
+    section:last-child { border-bottom: 0; }
+    h2 { margin: 0; font-size: clamp(1.55rem, 3vw, 2.35rem); letter-spacing: -.04em; line-height: 1.08; }
+    h3 { margin: 1.6rem 0 .35rem; font-size: 1.08rem; letter-spacing: -.015em; }
+    p, li { line-height: 1.62; }
+    p { margin: .65rem 0 0; }
+    ul, ol { padding-left: 1.25rem; }
+    li + li { margin-top: .3rem; }
+    .section-intro { max-width: 72ch; color: var(--muted); }
+    .callout { margin-top: 1rem; border-left: 4px solid var(--blue); border-radius: .2rem .65rem .65rem .2rem; padding: .85rem 1rem; background: var(--blue-soft); }
+    .callout strong { display: block; margin-bottom: .2rem; }
+    .callout.warning { border-color: var(--amber); background: var(--amber-soft); }
+    .callout.danger { border-color: var(--red); background: var(--red-soft); }
+    .callout.success { border-color: var(--accent); background: var(--accent-soft); }
+    .steps { list-style: none; counter-reset: step; padding: 0; margin: 1.25rem 0 0; }
+    .steps > li { counter-increment: step; position: relative; margin: 0; padding: 0 0 1.45rem 3.1rem; }
+    .steps > li::before { content: counter(step); position: absolute; left: 0; top: -.15rem; width: 2.1rem; height: 2.1rem; display: grid; place-items: center; border-radius: 50%; background: var(--accent); color: #fff; font-weight: 800; font-size: .82rem; }
+    .steps > li::after { content: ""; position: absolute; left: 1.02rem; top: 2rem; bottom: 0; width: 1px; background: var(--line); }
+    .steps > li:last-child::after { display: none; }
+    .steps h3 { margin: 0 0 .25rem; }
+    .grid-2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .8rem; margin-top: 1rem; }
+    .card { border: 1px solid var(--line); border-radius: .75rem; background: var(--paper); padding: 1rem; }
+    .card h3 { margin: 0; }
+    .card p { color: var(--muted); font-size: .9rem; }
+    dl { display: grid; grid-template-columns: 10rem minmax(0, 1fr); margin: 1rem 0 0; border-top: 1px solid var(--line); }
+    dt, dd { margin: 0; padding: .72rem 0; border-bottom: 1px solid var(--line); }
+    dt { color: var(--muted); }
+    dd { padding-left: 1rem; line-height: 1.5; }
+    table { width: 100%; border-collapse: collapse; margin-top: 1rem; }
+    th, td { padding: .75rem .65rem; text-align: left; vertical-align: top; border-bottom: 1px solid var(--line); }
+    th { color: var(--muted); }
+    td { font-size: .9rem; line-height: 1.45; }
+    details { margin-top: .8rem; border: 1px solid var(--line); border-radius: .65rem; background: var(--paper); }
+    summary { cursor: pointer; padding: .8rem 1rem; font-weight: 750; }
+    details > div { padding: 0 1rem 1rem; }
+    .checklist { list-style: none; padding: 0; margin: 1rem 0 0; }
+    .checklist li { position: relative; padding: .58rem .75rem .58rem 2.35rem; border-top: 1px solid var(--line); }
+    .checklist li::before { content: "□"; position: absolute; left: .65rem; color: var(--accent); font-size: 1.2rem; line-height: 1.2; }
+    .checklist li:last-child { border-bottom: 1px solid var(--line); }
+    .source-list { columns: 2; column-gap: 2rem; }
+    .source-list li { break-inside: avoid; margin-bottom: .45rem; }
+    footer { display: flex; flex-wrap: wrap; justify-content: space-between; gap: .75rem; padding-top: 1.5rem; color: var(--muted); font-size: .8rem; }
+    @media (max-width: 900px) {
+      .summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .layout { grid-template-columns: 1fr; }
+      .toc { position: static; }
+      .toc ol { columns: 2; column-gap: 1.5rem; }
+      .toc li { break-inside: avoid; }
+    }
+    @media (max-width: 620px) {
+      .page { padding-inline: .85rem; }
+      .summary, .grid-2 { grid-template-columns: 1fr; }
+      .toc ol, .source-list { columns: 1; }
+      dl { grid-template-columns: 1fr; }
+      dt { border-bottom: 0; padding-bottom: 0; }
+      dd { padding-left: 0; }
+      table, tbody, tr, td { display: block; }
+      thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+      tr { padding: .5rem 0; border-bottom: 1px solid var(--line); }
+      td { border: 0; padding: .3rem 0; }
+      .steps > li { padding-left: 2.7rem; }
+    }
+    @media print {
+      :root { --bg: #fff; --paper: #fff; --ink: #000; --muted: #444; --line: #bbb; --soft: #eee; --code: #f3f3f3; --code-ink: #000; color-scheme: light; }
+      @page { margin: 14mm; }
+      .page { width: auto; padding: 0; }
+      .masthead { padding-top: 0; }
+      .layout { display: block; }
+      .toc { position: static; margin: 1rem 0; }
+      .toc .runbook { display: none; }
+      section { break-inside: auto; }
+      pre, .card, .callout, details { break-inside: avoid; box-shadow: none; }
+      a { color: #000; text-decoration: none; }
+      a[href^="http"]::after { content: " (" attr(href) ")"; font-size: .72em; overflow-wrap: anywhere; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <header class="masthead">
+      <p class="kicker">ThinkCentre Tiny · execution node · reviewed 16 July 2026</p>
+      <h1>Arch + CachyOS installation guide</h1>
+      <p class="lede">A destructive, start-to-finish build for an always-on headless development node: minimal Arch Linux, full CachyOS optimized repositories, the default CachyOS kernel, an independent Arch LTS fallback, Tailscale access, bounded Docker, and the repository’s execution-node automation.</p>
+      <div class="meta" aria-label="Guide properties">
+        <span class="pill">UEFI only</span>
+        <span class="pill">USB Wi-Fi + wired DHCP</span>
+        <span class="pill">No Secure Boot</span>
+        <span class="pill">Physical recovery available</span>
+      </div>
+    </header>
+
+    <div class="summary" aria-label="Target architecture">
+      <article><span>Base</span><strong>Minimal Arch Linux</strong></article>
+      <article><span>Package layer</span><strong>CachyOS x86-64-v3</strong></article>
+      <article><span>Primary kernel</span><strong>linux-cachyos</strong></article>
+      <article><span>Fallback kernel</span><strong>Arch linux-lts</strong></article>
+    </div>
+
+    <div class="layout">
+      <aside class="toc" aria-label="Table of contents">
+        <p class="section-label">Installation path</p>
+        <ol>
+          <li><a href="#design">Target design</a></li>
+          <li><a href="#prepare">Prepare</a></li>
+          <li><a href="#live">Boot the Arch ISO</a></li>
+          <li><a href="#disk">Partition and format</a></li>
+          <li><a href="#base">Install the base</a></li>
+          <li><a href="#system">Configure Arch</a></li>
+          <li><a href="#boot">Configure systemd-boot</a></li>
+          <li><a href="#firstboot">First boot</a></li>
+          <li><a href="#cachyos">Add CachyOS</a></li>
+          <li><a href="#execution">Configure the node</a></li>
+          <li><a href="#access">Remote access</a></li>
+          <li><a href="#resource">Bound resources</a></li>
+          <li><a href="#validate">Validate and hand off</a></li>
+        </ol>
+        <a class="runbook" href="thinkcentre-arch-cachyos-maintenance.html">Open maintenance runbook →</a>
+      </aside>
+
+      <main>
+        <section id="design">
+          <p class="section-label">01 · Target design</p>
+          <h2>Know what this procedure builds</h2>
+          <p class="section-intro">This is intentionally a single-purpose machine. It does not install a graphical desktop, K3s, databases, public ingress, or irreplaceable state.</p>
+          <dl>
+            <dt>Firmware</dt><dd>UEFI, Secure Boot disabled, firmware Fast Boot disabled if it hides the boot menu.</dd>
+            <dt>Storage</dt><dd>One whole NVMe/SATA disk: 1 GiB FAT32 EFI System Partition and an ext4 root filesystem.</dd>
+            <dt>Networking</dt><dd>The USB Wi-Fi adapter provides Internet during installation and remains a fallback after boot. systemd-networkd supplies DHCP for both Wi-Fi and Ethernet, with wired preferred when both are connected; Tailscale provides remote access.</dd>
+            <dt>Boot</dt><dd>systemd-boot with a five-second menu; <code>linux-cachyos</code> is primary and official <code>linux-lts</code> remains independently bootable.</dd>
+            <dt>Workload</dt><dd>Bare-metal T3 Code, Codex CLI, Git, builds/tests, Docker/Compose, language toolchains, isolated workspaces and bounded caches. GitHub holds durable project source.</dd>
+            <dt>State</dt><dd>Configuration in Git/Ansible; source repositories and selected caches are rebuildable. No unique service state belongs here.</dd>
+          </dl>
+          <div class="callout danger">
+            <strong>This procedure erases the selected disk.</strong>
+            Read the model and size from <code>lsblk</code> immediately before partitioning. Disconnect any disk you cannot afford to erase.
+          </div>
+        </section>
+
+        <section id="prepare">
+          <p class="section-label">02 · Prepare</p>
+          <h2>Collect facts and recovery material</h2>
+          <ol class="steps">
+            <li>
+              <h3>Record the hardware</h3>
+              <p>Write down the exact ThinkCentre model, CPU, RAM, disk, Ethernet controller, USB Wi-Fi chipset, firmware version and Lenovo serial number. Photograph the current firmware settings. Confirm the current Arch ISO detects the USB adapter before relying on it as the only setup connection.</p>
+            </li>
+            <li>
+              <h3>Set the firmware</h3>
+              <ul>
+                <li>Boot mode: <strong>UEFI only</strong>; disable CSM/Legacy Boot.</li>
+                <li>Secure Boot: disabled, per this design.</li>
+                <li>Virtualization: enable Intel VT-x/VT-d or the AMD equivalents.</li>
+                <li>USB boot: enabled. Disable Fast Boot if USB input is skipped during startup.</li>
+                <li>Power: choose “Power on after AC loss” if this node should recover automatically after an outage.</li>
+              </ul>
+            </li>
+            <li>
+              <h3>Create and verify an Arch installation USB</h3>
+              <p>Download the current ISO, signature and checksum from the official Arch download page. Verify the signature before writing the ISO. Keep this USB as the recovery medium after installation.</p>
+            </li>
+            <li>
+              <h3>Reserve the network identity</h3>
+              <p>Plan hostname <code>thinkcentre</code>. After the first boot, reserve the wired NIC’s MAC address in the router instead of hard-coding a static address on the host. The USB Wi-Fi lease can be used during setup; reserve its MAC too only if Wi-Fi will remain a regular access path.</p>
+            </li>
+          </ol>
+          <div class="grid-2">
+            <article class="card"><h3>Required at the machine</h3><p>Monitor, keyboard, Arch USB, the known-working USB Wi-Fi adapter and Wi-Fi credentials. An Ethernet cable is optional during setup but recommended for the node’s steady-state connection. Keep access to the router’s DHCP leases.</p></article>
+            <article class="card"><h3>Values used below</h3><p>Disk <code>/dev/nvme0n1</code>, ESP <code>p1</code>, root <code>p2</code>, hostname <code>thinkcentre</code>, user <code>homelab</code>. Substitute carefully.</p></article>
+          </div>
+        </section>
+
+        <section id="live">
+          <p class="section-label">03 · Live environment</p>
+          <h2>Boot the Arch ISO and prove the basics</h2>
+          <ol class="steps">
+            <li>
+              <h3>Confirm UEFI mode</h3>
+              <pre><code>ls /sys/firmware/efi/efivars</code></pre>
+              <p>A populated directory is the expected result. Reboot and correct the firmware mode if it does not exist.</p>
+            </li>
+            <li>
+              <h3>Connect the USB Wi-Fi adapter and confirm Internet access</h3>
+              <pre><code>lsusb
+ip link
+rfkill
+rfkill unblock wifi
+iwctl device list
+iwctl station WIFI_DEVICE scan
+iwctl station WIFI_DEVICE get-networks
+iwctl station WIFI_DEVICE connect "WIFI_SSID"
+
+timedatectl set-ntp true
+ip address
+ip route
+ping -c 3 archlinux.org</code></pre>
+              <p>Replace <code>WIFI_DEVICE</code> with the name shown by <code>iwctl device list</code>; it is commonly <code>wlan0</code>. The connect command prompts for the passphrase, avoiding credentials in shell history. The Arch ISO already runs iwd, systemd-networkd and systemd-resolved. If the adapter does not appear in both <code>lsusb</code> and <code>ip link</code>, stop and resolve its driver or firmware support before erasing the disk.</p>
+            </li>
+            <li>
+              <h3>Identify the installation disk</h3>
+              <pre><code>lsblk -e7 -o NAME,SIZE,MODEL,SERIAL,TYPE,FSTYPE,MOUNTPOINTS
+fdisk -l</code></pre>
+              <p>For a SATA SSD, subsequent partition names will look like <code>/dev/sda1</code> and <code>/dev/sda2</code>, not NVMe’s <code>p1</code>/<code>p2</code>.</p>
+            </li>
+          </ol>
+        </section>
+
+        <section id="disk">
+          <p class="section-label">04 · Disk</p>
+          <h2>Partition, format and mount</h2>
+          <p class="section-intro">The layout favours transparent recovery over snapshot features. ext4 is sufficient because the node is rebuilt from code and keeps no unique service state.</p>
+          <div class="callout danger"><strong>Final destructive checkpoint.</strong> The commands below irreversibly target <code>/dev/nvme0n1</code>.</div>
+          <ol class="steps">
+            <li>
+              <h3>Create a fresh GPT and two partitions</h3>
+              <pre><code>sgdisk --zap-all /dev/nvme0n1
+sgdisk --new=1:0:+1GiB --typecode=1:ef00 --change-name=1:EFI /dev/nvme0n1
+sgdisk --new=2:0:0 --typecode=2:8304 --change-name=2:ARCHROOT /dev/nvme0n1
+partprobe /dev/nvme0n1
+lsblk -f /dev/nvme0n1</code></pre>
+            </li>
+            <li>
+              <h3>Format the filesystems</h3>
+              <pre><code>mkfs.fat -F 32 -n EFI /dev/nvme0n1p1
+mkfs.ext4 -L ARCHROOT /dev/nvme0n1p2</code></pre>
+            </li>
+            <li>
+              <h3>Mount root and the EFI System Partition</h3>
+              <pre><code>mount /dev/nvme0n1p2 /mnt
+mount --mkdir /dev/nvme0n1p1 /mnt/boot
+findmnt /mnt
+findmnt /mnt/boot</code></pre>
+            </li>
+          </ol>
+        </section>
+
+        <section id="base">
+          <p class="section-label">05 · Base system</p>
+          <h2>Install only what is needed to boot and recover</h2>
+          <ol class="steps">
+            <li>
+              <h3>Optionally choose nearby mirrors</h3>
+              <pre><code>reflector --country Canada,United States \
+  --latest 20 --protocol https --sort rate \
+  --save /etc/pacman.d/mirrorlist</code></pre>
+              <p>If Reflector cannot produce a usable list, retain the ISO’s generated mirror list.</p>
+            </li>
+            <li>
+              <h3>Install the bootstrap system</h3>
+              <pre><code>pacstrap -K /mnt \
+  base base-devel linux-lts linux-firmware intel-ucode \
+  git openssh sudo vim curl ca-certificates iwd</code></pre>
+              <p>For an AMD ThinkCentre, replace <code>intel-ucode</code> with <code>amd-ucode</code>. The CachyOS package layer is added only after a known-good Arch LTS boot.</p>
+            </li>
+            <li>
+              <h3>Generate mounts and preserve the live Wi-Fi profile</h3>
+              <pre><code>genfstab -U /mnt &gt;&gt; /mnt/etc/fstab
+cat /mnt/etc/fstab
+
+install -d -m 0700 /mnt/var/lib/iwd
+cp -a /var/lib/iwd/. /mnt/var/lib/iwd/
+find /mnt/var/lib/iwd -type f -exec chmod 600 {} +
+
+arch-chroot /mnt</code></pre>
+              <p>Do not continue if root and <code>/boot</code> are absent or mapped to the wrong UUIDs. The copied iwd profile lets the installed system reconnect to the same Wi-Fi network on first boot; it contains authentication material, so keep it root-only and never commit it to Git. If you deliberately installed over Ethernet, the empty copy is harmless.</p>
+            </li>
+          </ol>
+        </section>
+
+        <section id="system">
+          <p class="section-label">06 · Arch configuration</p>
+          <h2>Set identity, locale, user and dual-path networking</h2>
+          <ol class="steps">
+            <li>
+              <h3>Set Toronto time and the hardware clock</h3>
+              <pre><code>ln -sf /usr/share/zoneinfo/America/Toronto /etc/localtime
+hwclock --systohc</code></pre>
+            </li>
+            <li>
+              <h3>Generate the locale</h3>
+              <pre><code>sed -i 's/^#en_CA.UTF-8 UTF-8/en_CA.UTF-8 UTF-8/' /etc/locale.gen
+sed -i 's/^#en_US.UTF-8 UTF-8/en_US.UTF-8 UTF-8/' /etc/locale.gen
+locale-gen
+printf 'LANG=en_CA.UTF-8\n' &gt; /etc/locale.conf</code></pre>
+            </li>
+            <li>
+              <h3>Set the hostname and local hosts file</h3>
+              <pre><code>printf 'thinkcentre\n' &gt; /etc/hostname
+printf '127.0.0.1 localhost\n::1 localhost\n127.0.1.1 thinkcentre\n' &gt; /etc/hosts</code></pre>
+            </li>
+            <li>
+              <h3>Create the administrator</h3>
+              <pre><code>passwd
+useradd --create-home --groups wheel --shell /bin/bash homelab
+passwd homelab
+install -m 0440 /dev/null /etc/sudoers.d/10-wheel
+printf '%%wheel ALL=(ALL:ALL) ALL\n' &gt; /etc/sudoers.d/10-wheel
+visudo -cf /etc/sudoers.d/10-wheel</code></pre>
+            </li>
+            <li>
+              <h3>Configure DHCP for wired and USB Wi-Fi</h3>
+              <pre><code>install -d /etc/systemd/network
+cat &gt; /etc/systemd/network/20-wired.network &lt;&lt;'EOF'
+[Match]
+Name=en*
+
+[Link]
+RequiredForOnline=routable
+
+[Network]
+DHCP=yes
+
+[DHCPv4]
+RouteMetric=100
+
+[IPv6AcceptRA]
+RouteMetric=100
+EOF
+
+cat &gt; /etc/systemd/network/30-wireless.network &lt;&lt;'EOF'
+[Match]
+Name=wl*
+
+[Link]
+RequiredForOnline=routable
+
+[Network]
+DHCP=yes
+IgnoreCarrierLoss=3s
+
+[DHCPv4]
+RouteMetric=600
+
+[IPv6AcceptRA]
+RouteMetric=600
+EOF
+
+install -d /etc/systemd/system/systemd-networkd-wait-online.service.d
+cat &gt; /etc/systemd/system/systemd-networkd-wait-online.service.d/10-any-interface.conf &lt;&lt;'EOF'
+[Service]
+ExecStart=
+ExecStart=/usr/lib/systemd/systemd-networkd-wait-online --any
+EOF
+
+systemctl enable systemd-networkd.service
+systemctl enable systemd-resolved.service
+systemctl enable systemd-timesyncd.service
+systemctl enable iwd.service
+systemctl enable sshd.service</code></pre>
+              <p>iwd authenticates the wireless link; systemd-networkd remains the only DHCP client. The lower route metric makes Ethernet preferred when it is connected, while <code>--any</code> allows boot to reach network-online through either interface.</p>
+            </li>
+          </ol>
+          <div class="callout warning"><strong>Do not enable another DHCP manager.</strong> NetworkManager, dhcpcd and iwd’s built-in network configuration must not compete with systemd-networkd. Leave <code>EnableNetworkConfiguration</code> unset or false in <code>/etc/iwd/main.conf</code>.</div>
+        </section>
+
+        <section id="boot">
+          <p class="section-label">07 · Boot</p>
+          <h2>Install systemd-boot with LTS as the initial default</h2>
+          <ol class="steps">
+            <li>
+              <h3>Install the boot manager</h3>
+              <pre><code>bootctl --esp-path=/boot install
+install -d /boot/loader/entries</code></pre>
+            </li>
+            <li>
+              <h3>Create the loader configuration</h3>
+              <pre><code>cat &gt; /boot/loader/loader.conf &lt;&lt;'EOF'
+default arch-lts.conf
+timeout 5
+console-mode auto
+editor yes
+EOF</code></pre>
+            </li>
+            <li>
+              <h3>Create the LTS entry</h3>
+              <pre><code>ROOT_UUID=$(blkid -s UUID -o value /dev/nvme0n1p2)
+cat &gt; /boot/loader/entries/arch-lts.conf &lt;&lt;EOF
+title   Arch Linux (LTS fallback)
+linux   /vmlinuz-linux-lts
+initrd  /intel-ucode.img
+initrd  /initramfs-linux-lts.img
+options root=UUID=${ROOT_UUID} rw
+EOF
+
+bootctl</code></pre>
+              <p>Use <code>/amd-ucode.img</code> on AMD. Correct any parse or missing-file errors before leaving the chroot.</p>
+            </li>
+            <li>
+              <h3>Finish the live-ISO phase</h3>
+              <pre><code>exit
+ln -sf ../run/systemd/resolve/stub-resolv.conf /mnt/etc/resolv.conf
+umount -R /mnt
+reboot</code></pre>
+              <p>Remove the USB when firmware restarts. The machine should show a five-second menu and boot the LTS kernel.</p>
+            </li>
+          </ol>
+        </section>
+
+        <section id="firstboot">
+          <p class="section-label">08 · First boot</p>
+          <h2>Prove stock Arch before adding optimizations</h2>
+          <p class="section-intro">Log in locally as <code>homelab</code>. Every check here should pass before CachyOS packages are introduced.</p>
+          <pre><code>uname -r
+findmnt / /boot
+networkctl status
+resolvectl status
+iwctl device list
+iwctl station WIFI_DEVICE show
+ping -c 3 archlinux.org
+systemctl --failed
+sudo journalctl -b -p err
+bootctl list
+sudo pacman -Syu</code></pre>
+          <div class="callout success"><strong>Baseline gate.</strong> Continue only when the current kernel name contains <code>lts</code>, networking and DNS work, <code>/boot</code> is mounted, and no unexplained failed units remain.</div>
+        </section>
+
+        <section id="cachyos">
+          <p class="section-label">09 · CachyOS package layer</p>
+          <h2>Add the optimized repositories and primary kernel</h2>
+          <ol class="steps">
+            <li>
+              <h3>Verify the CPU tier</h3>
+              <pre><code>/lib/ld-linux-x86-64.so.2 --help | grep supported
+lscpu | sed -n '1,24p'</code></pre>
+              <p>Use <code>x86-64-v3</code> when reported. Treat Intel 12th-generation and newer hybrid CPUs as v3 unless AVX-512 is genuinely usable across all enabled cores. Never choose v4 by model year alone.</p>
+            </li>
+            <li>
+              <h3>Download, inspect and run the official repository helper</h3>
+              <pre><code>mkdir -p ~/setup
+cd ~/setup
+curl -O https://mirror.cachyos.org/cachyos-repo.tar.xz
+tar -xf cachyos-repo.tar.xz
+cd cachyos-repo
+less cachyos-repo.sh
+sudo ./cachyos-repo.sh</code></pre>
+              <p>Confirm the helper selected the expected CPU tier and backed up <code>/etc/pacman.conf</code>.</p>
+            </li>
+            <li>
+              <h3>Review repository priority</h3>
+              <pre><code>grep -nE '^\[[^]]+\]|^Include' /etc/pacman.conf
+pacman-conf --repo-list</code></pre>
+              <p>The selected CachyOS architecture repositories and <code>[cachyos]</code> should appear above Arch <code>[core]</code> and <code>[extra]</code>.</p>
+            </li>
+            <li>
+              <h3>Update and reinstall native packages from the preferred repositories</h3>
+              <pre><code>sudo pacman -Syu
+pacman -Qqn | sudo pacman -S -</code></pre>
+              <p>The second command intentionally revisits every repository package, selecting the highest-priority provider. Review the transaction before confirming. This is the point at which the base gains CachyOS optimized replacements.</p>
+            </li>
+            <li>
+              <h3>Install the primary kernel</h3>
+              <pre><code>sudo pacman -S linux-cachyos
+ls -lh /boot/vmlinuz-* /boot/initramfs-*</code></pre>
+              <p>Add <code>linux-cachyos-headers</code> only when a DKMS or kernel-module build actually requires them.</p>
+            </li>
+            <li>
+              <h3>Add the CachyOS boot entry and make it the default</h3>
+              <pre><code>ROOT_UUID=$(findmnt -no UUID /)
+sudo tee /boot/loader/entries/arch-cachyos.conf &gt;/dev/null &lt;&lt;EOF
+title   Arch Linux (CachyOS kernel)
+linux   /vmlinuz-linux-cachyos
+initrd  /intel-ucode.img
+initrd  /initramfs-linux-cachyos.img
+options root=UUID=${ROOT_UUID} rw
+EOF
+
+sudo bootctl set-default arch-cachyos.conf
+bootctl list
+sudo systemctl reboot</code></pre>
+            </li>
+          </ol>
+          <div class="callout"><strong>Fallback stays independent.</strong> Do not replace <code>linux-lts</code> with <code>linux-cachyos-lts</code>. The purpose of this entry is recovery from both a CachyOS patch regression and a CachyOS repository problem.</div>
+        </section>
+
+        <section id="execution">
+          <p class="section-label">10 · Execution node</p>
+          <h2>Apply the repository-managed development profile</h2>
+          <p class="section-intro">The homelab repository owns mise with Node.js 24, Go, Rust and Herdr; Codex CLI and OpenCode; Docker settings; Tailscale; the T3 Code headless server; and dotfiles integration. Avoid maintaining a second manual configuration in parallel.</p>
+          <ol class="steps">
+            <li>
+              <h3>Install the bootstrap prerequisites</h3>
+              <p>Only Git and OpenSSH are required before cloning. The managed-node bootstrap installs the global <code>uv</code> package, a per-user uv-managed Python 3.14, and the user's global 3.14 pin. It does not install Ansible.</p>
+              <pre><code>sudo pacman -S --needed git openssh</code></pre>
+            </li>
+            <li>
+              <h3>Clone this configuration repository</h3>
+              <pre><code>mkdir -p ~/src
+git clone YOUR_HOMELAB_CONFIG_REPOSITORY ~/src/homelab-config
+cd ~/src/homelab-config</code></pre>
+            </li>
+            <li>
+              <h3>Prepare the Arch managed node</h3>
+              <p>Run the prerequisite-only path on the ThinkCentre. It stops after uv, Python 3.14, and the global pin are ready. Production inventory and Vault remain on the MacBook controller.</p>
+              <pre><code>./bootstrap.sh --prepare-only
+uv python pin --global</code></pre>
+            </li>
+            <li>
+              <h3>Check, apply and validate the execution-node playbook</h3>
+              <p>Return to the MacBook checkout. The controller playbook installs Tailscale, mise-managed Node.js 24, Go, Rust and Herdr, Codex CLI, OpenCode, and a systemd-managed T3 Code headless server exposed with Tailscale Serve.</p>
+              <pre><code>./bootstrap.sh --profile execution-node --limit thinkcentre --check
+./bootstrap.sh --profile execution-node --limit thinkcentre
+make validate LIMIT=thinkcentre</code></pre>
+              <p>Use the repository’s current documented targets if they change. Do not bypass a failing check-mode run without understanding the difference.</p>
+            </li>
+          </ol>
+          <div class="callout"><strong>Keep one package owner.</strong> If the
+          execution-node role is unavailable, repair or check out this
+          repository from the MacBook controller. Do not maintain a parallel
+          manual package list on the node.</div>
+        </section>
+
+        <section id="access">
+          <p class="section-label">11 · Remote access</p>
+          <h2>Establish SSH and Tailscale without locking out recovery</h2>
+          <ol class="steps">
+            <li>
+              <h3>Install a public SSH key</h3>
+              <p>From the MacBook, after verifying the router lease and host identity. <code>THINKCENTRE_LAN_IP</code> may initially be the USB Wi-Fi address; switch the router reservation and your normal access path to the wired address once Ethernet is connected.</p>
+              <pre><code>ssh-copy-id homelab@THINKCENTRE_LAN_IP
+ssh homelab@THINKCENTRE_LAN_IP</code></pre>
+            </li>
+            <li>
+              <h3>Verify the host key out of band</h3>
+              <pre><code>sudo ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub</code></pre>
+              <p>Compare the locally displayed fingerprint with the MacBook’s first-use prompt before accepting it.</p>
+            </li>
+            <li>
+              <h3>Enroll Tailscale without taking over DNS</h3>
+              <pre><code>sudo systemctl enable --now tailscaled
+sudo tailscale up --accept-dns=false
+tailscale status
+tailscale ip -4</code></pre>
+              <p>If tailnet ACLs use tags, enroll using the approved reusable/pre-authorized auth key managed through Vault rather than pasting it into shell history.</p>
+            </li>
+            <li>
+              <h3>Test both paths before hardening SSH</h3>
+              <pre><code>ssh homelab@THINKCENTRE_LAN_IP
+ssh homelab@THINKCENTRE_TAILSCALE_IP</code></pre>
+              <p>Keep the local console logged in during testing. Disable SSH passwords only after key login, Tailscale login and console recovery have all been proven.</p>
+            </li>
+          </ol>
+        </section>
+
+        <section id="resource">
+          <p class="section-label">12 · Resource bounds</p>
+          <h2>Protect a small chassis from unbounded development workloads</h2>
+          <ol class="steps">
+            <li>
+              <h3>Bound Docker logs and preserve running containers across daemon upgrades</h3>
+              <pre><code>sudo install -d /etc/docker
+sudo tee /etc/docker/daemon.json &gt;/dev/null &lt;&lt;'EOF'
+{
+  "live-restore": true,
+  "log-driver": "json-file",
+  "log-opts": {
+    "max-file": "3",
+    "max-size": "10m"
+  }
+}
+EOF
+sudo dockerd --validate --config-file=/etc/docker/daemon.json
+sudo systemctl enable --now docker
+sudo systemctl restart docker</code></pre>
+            </li>
+            <li>
+              <h3>Add compressed swap as an OOM safety valve</h3>
+              <pre><code>sudo pacman -S zram-generator
+sudo tee /etc/systemd/zram-generator.conf &gt;/dev/null &lt;&lt;'EOF'
+[zram0]
+zram-size = min(ram / 2, 4096)
+compression-algorithm = zstd
+EOF
+sudo systemctl daemon-reload
+sudo systemctl start systemd-zram-setup@zram0.service
+swapon --show
+zramctl</code></pre>
+              <p>This caps the virtual zram device at 4 GiB. It is protection against short spikes, not permission to oversubscribe memory indefinitely.</p>
+            </li>
+            <li>
+              <h3>Bound persistent logs</h3>
+              <pre><code>sudo install -d /etc/systemd/journald.conf.d
+sudo tee /etc/systemd/journald.conf.d/10-size-limits.conf &gt;/dev/null &lt;&lt;'EOF'
+[Journal]
+SystemMaxUse=500M
+RuntimeMaxUse=100M
+MaxRetentionSec=14day
+EOF
+sudo systemctl restart systemd-journald</code></pre>
+            </li>
+            <li>
+              <h3>Enable storage maintenance and hardware visibility</h3>
+              <pre><code>sudo pacman -S smartmontools lm_sensors pacman-contrib
+sudo systemctl enable --now smartd.service
+sudo systemctl enable --now fstrim.timer
+sudo systemctl enable --now paccache.timer
+sudo sensors-detect --auto
+sensors
+sudo smartctl -a /dev/nvme0n1</code></pre>
+            </li>
+          </ol>
+          <div class="callout warning"><strong>Docker group membership is root-equivalent.</strong> Rootful Docker and this access are accepted for the declared execution-node account. Treat that account and every agent running as it as trusted host administration.</div>
+        </section>
+
+        <section id="validate">
+          <p class="section-label">13 · Acceptance</p>
+          <h2>Validate, document and hand off</h2>
+          <h3>Run the final smoke test</h3>
+          <pre><code>uname -r
+pacman-conf --repo-list
+bootctl list
+systemctl --failed
+journalctl -b -p err
+networkctl status
+resolvectl status
+iwctl device list
+iwctl station WIFI_DEVICE show
+tailscale status
+ssh -V
+docker version
+docker run --rm hello-world
+swapon --show
+df -h /
+df -h /boot
+sensors
+sudo smartctl -H /dev/nvme0n1</code></pre>
+          <h3>Prove the fallback before declaring success</h3>
+          <pre><code>sudo systemctl reboot --boot-loader-entry=arch-lts.conf</code></pre>
+          <p>After the LTS boot, confirm network, SSH, Tailscale and Docker. Then return to the primary kernel without changing the persistent default:</p>
+          <pre><code>sudo systemctl reboot --boot-loader-entry=arch-cachyos.conf</code></pre>
+          <ul class="checklist" aria-label="Go-live checklist">
+            <li><code>linux-cachyos</code> boots automatically after five seconds.</li>
+            <li><code>linux-lts</code> has been booted successfully at least once.</li>
+            <li>The USB Wi-Fi adapter reconnects after boot and wired Ethernet takes route priority when attached.</li>
+            <li>LAN and Tailscale SSH both work using a key.</li>
+            <li>The host fingerprint is recorded and verified.</li>
+            <li>Router DHCP reservation is set.</li>
+            <li>Ansible check and validation runs pass.</li>
+            <li>Docker logs, journald and package cache are bounded.</li>
+            <li>No unique state exists only on this node.</li>
+            <li>The Arch USB, monitor and keyboard remain available for recovery.</li>
+          </ul>
+        </section>
+
+        <section id="sources">
+          <p class="section-label">References</p>
+          <h2>Primary documentation</h2>
+          <ul class="source-list">
+            <li><a href="https://wiki.archlinux.org/title/Installation_guide">Arch installation guide</a></li>
+            <li><a href="https://wiki.archlinux.org/title/Iwd">Arch iwd guide</a></li>
+            <li><a href="https://wiki.archlinux.org/title/Systemd-boot">Arch systemd-boot guide</a></li>
+            <li><a href="https://wiki.archlinux.org/title/Systemd-networkd">Arch systemd-networkd guide</a></li>
+            <li><a href="https://wiki.archlinux.org/title/Systemd-resolved">Arch systemd-resolved guide</a></li>
+            <li><a href="https://wiki.cachyos.org/features/optimized_repos/">CachyOS optimized repositories</a></li>
+            <li><a href="https://wiki.cachyos.org/features/kernel/">CachyOS kernel variants</a></li>
+            <li><a href="https://wiki.cachyos.org/policy/repository_policy/">CachyOS repository policy</a></li>
+            <li><a href="https://man.archlinux.org/man/zram-generator.conf.5">zram-generator configuration</a></li>
+          </ul>
+        </section>
+      </main>
+    </div>
+
+    <footer>
+      <span>Artifact: ThinkCentre Tiny installation guide</span>
+      <span>Companion: <a href="thinkcentre-arch-cachyos-maintenance.html">maintenance runbook</a></span>
+    </footer>
+  </div>
+</body>
+</html>

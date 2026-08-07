@@ -2,9 +2,17 @@ argument_specs:
   main:
     options:
       codex_version: {type: str}
+      opencode_version: {type: str}
+      t3_code_version: {type: str}
       execution_node_user: {type: str}
+      execution_node_packages: {type: list, elements: str}
+      execution_node_developer_cli_packages: {type: list, elements: str}
       mise_node_version: {type: str}
       mise_go_version: {type: str}
       mise_rust_version: {type: str}
+      mise_herdr_version: {type: str}
       docker_log_max_size: {type: str}
       docker_log_max_files: {type: str}
+      t3_code_host: {type: str}
+      t3_code_port: {type: int}
+      t3_code_tailscale_serve_port: {type: int}

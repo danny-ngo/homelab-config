@@ -1,0 +1,16 @@
+argument_specs:
+  main:
+    options:
+      wol_targets:
+        type: list
+        elements: dict
+        required: true
+        options:
+          name: {type: str, required: true}
+          mac_address: {type: str, required: true}
+          broadcast_address: {type: str}
+          port: {type: int}
+      wol_default_broadcast_address: {type: str}
+      wol_default_port: {type: int}
+      wol_repeat_count: {type: int}
+      wol_repeat_interval_seconds: {type: int}

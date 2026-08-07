@@ -1,0 +1,136 @@
+- name: Verify the Pi 1 probe platform and timing
+  ansible.builtin.assert:
+    that:
+      - ansible_os_family == 'Debian'
+      - ansible_architecture == 'armv6l'
+      - ansible_service_mgr == 'systemd'
+      - expected_os_family | default('') == 'Debian'
+      - expected_architecture | default('') == 'armv6l'
+      - pi1_probe_targets | length > 0
+      - >-
+        pi1_probe_targets | map(attribute='name') | unique | length
+        == pi1_probe_targets | length
+      - pi1_probe_interval_seconds >= 15
+      - pi1_probe_interval_seconds <= 3600
+      - pi1_probe_ping_timeout_seconds >= 1
+      - pi1_probe_ping_timeout_seconds <= 30
+      - pi1_probe_http_timeout_seconds >= 1
+      - pi1_probe_http_timeout_seconds <= 60
+      - pi1_probe_boot_media_gb >= 8
+      - pi1_probe_user is match('^[a-z_][a-z0-9_-]*$')
+    fail_msg: >-
+      The probe role requires a systemd-based Debian ARMv6 system, at least
+      one uniquely named target, at least 8 GB boot media, and bounded probe
+      timing.
+
+- name: Verify each probe target
+  ansible.builtin.assert:
+    that:
+      - item.name is match('^[a-z][a-z0-9-]*$')
+      - item.address is match('^[A-Za-z0-9][A-Za-z0-9._:-]*$')
+    fail_msg: >-
+      Each probe target needs a filename-safe unique name and an IP address or
+      DNS hostname without shell metacharacters.
+  loop: "{{ pi1_probe_targets }}"
+  loop_control:
+    label: "{{ item.name | default('invalid target') }}"
+
+- name: Verify vaulted Healthchecks URLs
+  ansible.builtin.assert:
+    that:
+      - pi1_probe_heartbeat_url is match('^https://\\S+$')
+      - pi1_probe_heartbeat_url != 'REPLACE_ME'
+      - item.healthchecks_url is match('^https://\\S+$')
+      - item.healthchecks_url != 'REPLACE_ME'
+    fail_msg: >-
+      Add unique HTTPS Healthchecks ping URLs for the probe and every target
+      to vault_pi1_probe_healthchecks_urls in the encrypted production vault.
+  loop: "{{ pi1_probe_targets }}"
+  loop_control:
+    label: "{{ item.name | default('invalid target') }}"
+  no_log: true
+
+- name: Install probe runtime packages
+  ansible.builtin.package:
+    name: [curl, iputils-ping]
+    state: present
+
+- name: Create the unprivileged probe account
+  ansible.builtin.user:
+    name: "{{ pi1_probe_user }}"
+    system: true
+    create_home: false
+    home: /nonexistent
+    shell: /usr/sbin/nologin
+
+- name: Check whether the probe account already exists
+  ansible.builtin.command:
+    argv: [getent, passwd, "{{ pi1_probe_user }}"]
+  register: pi1_probe_account
+  changed_when: false
+  failed_when: false
+  check_mode: false
+
+- name: Create the protected probe configuration directory
+  ansible.builtin.file:
+    path: "{{ pi1_probe_config_dir }}"
+    state: directory
+    owner: root
+    group: "{{ pi1_probe_user }}"
+    mode: "0750"
+  when: pi1_probe_account.rc == 0
+
+- name: Render protected target heartbeat configuration
+  ansible.builtin.template:
+    src: targets.tsv.j2
+    dest: "{{ pi1_probe_config_dir }}/targets.tsv"
+    owner: root
+    group: "{{ pi1_probe_user }}"
+    mode: "0640"
+  when: pi1_probe_account.rc == 0
+  no_log: true
+  notify: Restart Pi 1 ping probe
+
+- name: Render protected probe heartbeat URL
+  ansible.builtin.template:
+    src: heartbeat.url.j2
+    dest: "{{ pi1_probe_config_dir }}/heartbeat.url"
+    owner: root
+    group: "{{ pi1_probe_user }}"
+    mode: "0640"
+  when: pi1_probe_account.rc == 0
+  no_log: true
+  notify: Restart Pi 1 ping probe
+
+- name: Install the ping probe program
+  ansible.builtin.template:
+    src: pi1-ping-probe.sh.j2
+    dest: /usr/local/sbin/pi1-ping-probe
+    owner: root
+    group: root
+    mode: "0755"
+  notify: Restart Pi 1 ping probe
+
+- name: Inspect the existing ping probe unit
+  ansible.builtin.stat:
+    path: /etc/systemd/system/pi1-ping-probe.service
+  register: pi1_probe_existing_unit
+
+- name: Install the ping probe systemd unit
+  ansible.builtin.template:
+    src: pi1-ping-probe.service.j2
+    dest: /etc/systemd/system/pi1-ping-probe.service
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Restart Pi 1 ping probe
+
+- name: Enable and start the ping probe
+  ansible.builtin.systemd_service:
+    name: pi1-ping-probe.service
+    enabled: true
+    state: started
+    daemon_reload: true
+  when:
+    - pi1_probe_account.rc == 0
+    - pi1_probe_existing_unit.stat.exists or not ansible_check_mode

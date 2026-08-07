@@ -1,0 +1,5 @@
+wol_targets: []
+wol_default_broadcast_address: ""
+wol_default_port: 9
+wol_repeat_count: 3
+wol_repeat_interval_seconds: 1

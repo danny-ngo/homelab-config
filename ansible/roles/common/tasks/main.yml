@@ -4,15 +4,29 @@
       - ansible_os_family == expected_os_family
       - ansible_architecture == expected_architecture
       - administrator_public_keys | length > 0
+- name: Install the controller's Ghostty terminfo for the SSH user
+  ansible.builtin.include_tasks: ghostty-terminfo.yml
+  when: common_ghostty_terminfo_enabled
 - name: Set the Linux hostname
   ansible.builtin.hostname:
     name: "{{ common_hostname }}"
   when: ansible_system == 'Linux'
-- name: Install common packages
+- name: Install shared operator packages
   ansible.builtin.package:
-    name: "{{ common_packages }}"
+    name: "{{ operator_linux_packages }}"
     state: present
-  when: common_packages | length > 0
+  when:
+    - operator_linux_packages | length > 0
+    - inventory_hostname in groups.get('non_raspberry_pi_linux', [])
+- name: Provide the conventional bat command on Debian
+  ansible.builtin.file:
+    src: /usr/bin/batcat
+    dest: /usr/local/bin/bat
+    state: link
+  when:
+    - ansible_os_family == 'Debian'
+    - "'bat' in operator_linux_packages"
+    - inventory_hostname in groups.get('non_raspberry_pi_linux', [])
 - name: Install administrator SSH keys
   ansible.builtin.authorized_key:
     user: "{{ ansible_user }}"

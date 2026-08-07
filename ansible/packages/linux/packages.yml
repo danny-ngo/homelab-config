@@ -1,0 +1,26 @@
+# Initial bootstrap owns Git, OpenSSH, the distribution Python, and the global
+# uv executable. Purpose-specific roles own their own packages (for example,
+# tailscale, stow, and the host firewall). Shared operator tools remain separate
+# from packages required by one host profile.
+operator_linux_packages:
+  - bat
+  - btop
+  - fastfetch
+  - starship
+
+infra_host_packages:
+  # Debian 13 splits the engine, client, and Compose v2 into these packages.
+  # This intentionally uses Debian's repository rather than Docker CE.
+  - docker-cli
+  - docker-compose
+  - docker.io
+  - tmux
+
+execution_node_packages:
+  - bubblewrap
+  - docker
+  - docker-buildx
+  - docker-compose
+  - github-cli
+  - mise
+  - zsh

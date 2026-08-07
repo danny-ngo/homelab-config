@@ -1,9 +1,10 @@
 argument_specs:
   main:
     options:
-      workstation_homebrew_formulae: {type: list, elements: str}
-      workstation_homebrew_casks: {type: list, elements: str}
       workstation_user: {type: str}
+      codex_version: {type: str}
+      opencode_version: {type: str}
+      workstation_developer_cli_packages: {type: list, elements: str}
       mise_node_version: {type: str}
       mise_go_version: {type: str}
       mise_rust_version: {type: str}

@@ -1,7 +1,7 @@
 # Full Homelab Automation Plan
 
 Status: planning baseline
-Last reviewed: 2026-07-15
+Last reviewed: 2026-07-31
 Primary audience: implementation agents and the homelab operator
 Component detail: `.context/specs/k3s-cluster-spec.md` defines the Phase 4 K3s implementation contract beneath this plan.
 
@@ -15,9 +15,12 @@ The target outcome is a reproducible fleet in which:
 - the Debian ThinkPad is the persistent infrastructure host and K3s server;
 - the headless CachyOS ThinkCentre Tiny is a remote agentic-development execution node;
 - two Raspberry Pi 3 B v1.2 machines are normal K3s workers;
-- one Raspberry Pi 2 B v1.1 is admitted as an experimental K3s worker only after a support gate;
-- two Raspberry Pi 1 A+ v1.1 machines run Pi-hole directly on the operating system;
-- the MacBook, ThinkPad, and ThinkCentre are joined to Tailscale;
+- one Raspberry Pi 2 B v1.1 runs Pi-hole directly on the operating system and
+  also provides Tailscale and fixed WoL commands while remaining excluded from
+  K3s;
+- two 256 MB Raspberry Pi 1 A+ v1.1 machines use the documented ARMv6
+  inventory exception as a reachability probe and service sentinel;
+- the MacBook, ThinkPad, ThinkCentre, and Pi 2 are joined to Tailscale;
 - the separate dotfiles repository is applied as an explicit Ansible step rather than copied into this repository;
 - every important change is rerunnable, testable, and recoverable without committing secrets.
 
@@ -28,21 +31,27 @@ The repository is a scaffold. `README.md`, `Makefile`, `bootstrap.sh`, Ansible c
 The detailed cluster requirements live in `.context/k3s-cluster-spec.md`. That component specification establishes:
 
 - group-driven K3s server/agent behavior;
-- mixed `amd64`, `arm64`, `armv7`, and `armv6` constraints;
+- mixed `amd64` and `arm64` K3s constraints, with ARMv7 reserved for Pi-hole
+  and ARMv6 outside the standard managed-node baseline;
 - secure discovery of the K3s join token;
 - idempotency and cluster validation requirements;
-- Pi 3 workers as the normal target, Pi 2 as conditional, and Pi 1 devices outside K3s.
+- Pi 3 workers as the only target, with Pi 2 and Pi 1 devices outside K3s.
 
 Do not discard that detail. Implement the broader plan here and refer to the K3s document when working on cluster roles.
 
 ## 3. Architectural Principles
 
 1. **Separate machine configuration from application deployment.** Ansible owns hosts, packages, users, networking, Tailscale, host services, K3s installation, and validation. Kubernetes manifests or Helm own in-cluster applications.
-2. **Keep the bootstrap path acyclic.** One public bootstrap entry point prepares any supported operator machine and dispatches platform/profile modules. No managed host, including the ThinkPad, is required to remain the Ansible controller.
+2. **Keep the bootstrap path acyclic.** The remote installer prepares a persistent MacBook checkout or a temporary Linux source tree, then hands off to the local bootstrap. The MacBook dispatches profile modules; Linux initial bootstrap installs prerequisites and stops. No managed host, including the ThinkPad, is an Ansible controller.
 3. **Use group membership, not hostnames, to assign behavior.** A host may belong to several capability groups; for example, the ThinkPad is both an infrastructure host and a K3s server.
-4. **Prefer LAN addresses for the local cluster.** K3s server/agent traffic and Pi-hole service traffic should use stable LAN addresses initially because the Raspberry Pis are intentionally outside Tailscale. Tailscale is the remote administration path for the three primary computers.
+4. **Prefer LAN addresses for the local cluster.** K3s server/agent traffic
+   uses stable LAN addresses. Pi 2 uses both a stable LAN address for Pi-hole
+   and Tailscale for fixed WoL commands; remote filtered DNS remains gated on
+   explicit listener, firewall, and tailnet-policy work. The Pi 1 and Pi 3
+   boards stay off the tailnet.
 5. **Treat persistent state explicitly.** Databases, orchestration metadata, Pi-hole configuration, K3s state, and credentials each need named storage and recovery procedures before they are considered operational.
-6. **Do not make weak hardware a hidden dependency.** Failure of the Pi 2 or either Pi 1 must degrade only the workload or DNS instance assigned to it, not the automation path or cluster server.
+6. **Do not make weak hardware a hidden dependency.** Failure of the Pi 2
+   degrades DNS but not automation or K3s; the Pi 1 boards own no core service.
 7. **Pin versions and test upgrades.** Pin K3s and important roles/collections. Upgrade deliberately through a documented maintenance playbook.
 8. **No plaintext secrets in Git.** Repository examples contain variable names and fake values only. Runtime credentials come from an encrypted or external secret source.
 
@@ -55,9 +64,9 @@ Do not discard that detail. Implement the broader plan here and refer to the K3s
 | `thinkcentre` | ThinkCentre Tiny / headless CachyOS | Remote T3 Code and Codex CLI execution, builds/tests, isolated workspaces and caches | LAN + Tailscale | Rebuildable workspaces plus selected caches |
 | `rpi3a` | Raspberry Pi 3 B v1.2 / 64-bit Pi OS or Debian | Normal K3s worker for small services | LAN | Rebuildable node state |
 | `rpi3b` | Raspberry Pi 3 B v1.2 / 64-bit Pi OS or Debian | Normal K3s worker for small services | LAN | Rebuildable node state |
-| `rpi2` | Raspberry Pi 2 B v1.1 / supported 32-bit Pi OS | Experimental K3s worker after admission checks | LAN | Rebuildable; never required for quorum |
-| `pihole1` | Raspberry Pi 1 A+ v1.1 / supported 32-bit Pi OS | Bare-metal primary/peer Pi-hole DNS resolver | LAN with static lease | Replicated DNS configuration |
-| `pihole2` | Raspberry Pi 1 A+ v1.1 / supported 32-bit Pi OS | Bare-metal secondary/peer Pi-hole DNS resolver | LAN with static lease | Replicated DNS configuration |
+| `pi2` | Raspberry Pi 2 B v1.1 / supported 32-bit Pi OS | Bare-metal Pi-hole, Tailscale edge endpoint, and fixed WoL commands; never K3s | LAN + Tailscale | Rebuildable DNS configuration |
+| `pi1sentinel` | Raspberry Pi 1 A+ v1.1 / 256 MB / 32 GB | Stateless Pi 2 DNS-over-UDP/TCP and HTTP sentinel | LAN; outbound checks only | No production state |
+| `pi1probe` | Raspberry Pi 1 A+ v1.1 / 256 MB / 8 GB | Stateless ICMP reachability probe | LAN; outbound checks only | No production state |
 
 Hardware and OS versions must be confirmed in inventory facts before implementation. Friendly names above are placeholders and may be changed without changing role logic.
 
@@ -69,22 +78,18 @@ Default K3s workers. Provision a 64-bit operating system so they use the `arm64`
 
 ### Raspberry Pi 2 B v1.1
 
-Conditional worker, not part of the initial cluster acceptance set.
-
-As of this review, official K3s requirements list `armhf` as a supported architecture and publish ARM artifacts. That makes the Pi 2 an eligible candidate, not an automatic success. It must pass all of these gates:
-
-1. `ansible_architecture` reports a compatible ARMv7/32-bit architecture.
-2. The selected, actively maintained OS boots with required memory cgroups and systemd.
-3. Available RAM and disk meet the K3s agent minimum before workload overhead.
-4. The pinned K3s release includes a working `armhf` binary and required images.
-5. The node joins, survives reboot, reports `Ready`, and completes a 72-hour lightweight workload soak.
-6. Every workload allowed onto it has a compatible 32-bit ARM image and explicit scheduling rules.
-
-If any gate fails, keep `rpi2` in an `experimental_nodes` group and exclude it from `k3s_workers_enabled`. Its failure must not block the supported cluster rollout.
+Dedicated bare-metal Pi-hole host with Tailscale and fixed Wake-on-LAN commands
+as supporting edge services. Its 1 GB RAM clears Pi-hole's 512 MB minimum,
+while both Pi 1 boards are confirmed at only 256 MB. Exclude it from every K3s
+worker group and do not install a K3s agent.
 
 ### Raspberry Pi 1 A+ v1.1
 
-Never include these nodes in K3s. Reserve them for bare-metal Pi-hole. Current Pi-hole prerequisites list `armv6` binaries and Raspberry Pi OS among supported targets, so this placement is supportable provided the chosen OS release is actively maintained. Validate performance, storage health, and update behavior on one Pi before enabling both as network DNS.
+Never include these nodes in K3s, Pi-hole, Tailscale, or the standard Linux
+baseline. Both boards are confirmed to have 256 MB RAM, below Pi-hole's current
+512 MB minimum, and uv-managed Python 3.14 is unavailable for ARMv6. Admit only
+the selected 8 GB reachability-probe and 32 GB service-sentinel roles through
+the documented distribution-Python inventory exception.
 
 Time-sensitive source checks:
 
@@ -111,8 +116,15 @@ Join exactly these machines initially:
 - `macbook`
 - `thinkpad`
 - `thinkcentre`
+- `pi2`
 
-Use Tailscale for remote administration and development access. Keep enrollment credentials out of Git, tag the two unattended Linux machines, define an ACL policy outside or alongside this repository as appropriate, and document key-expiry decisions. CachyOS is Arch-derived; use the distribution-supported Tailscale package path and verify the `tun` device and `tailscaled` service.
+Use Tailscale for remote administration, development access, and Pi 2 fixed WoL
+commands. Pi 2 filtered DNS is the selected future design but remains disabled
+until its listener, firewall, and ACL gates are complete. Keep enrollment
+credentials out of Git, tag the unattended Linux machines, define an ACL policy
+outside or alongside this repository as appropriate, and document key-expiry
+decisions. CachyOS is Arch-derived; use the distribution-supported Tailscale
+package path and verify the `tun` device and `tailscaled` service.
 
 Official install references:
 
@@ -139,14 +151,14 @@ Official install references:
 
 | Workload type | Default placement | Rationale |
 |---|---|---|
-| Ansible control and scheduled maintenance | Any supported operator machine; optionally the ThinkPad | The inventory is not coupled to one permanent controller |
+| Ansible control and scheduled maintenance | MacBook workstation | The controller is rebuilt from Homebrew, uv, the repository, and its lockfiles |
 | K3s control plane and default SQLite datastore | ThinkPad host | Simple single-server cluster for v1 |
 | Infrastructure databases | ThinkPad host with dedicated persistent paths | Avoid accidental scheduling on SD cards; make backups explicit |
 | Pipeline orchestration control service | ThinkPad host initially | Keeps orchestration state on the managed infrastructure node |
 | Small stateless services | K3s on Pi 3 workers, optionally ThinkPad | Matches the intended lightweight cluster use |
 | Architecture-sensitive or heavier services | ThinkPad or constrained compatible nodes | Prevents invalid ARM scheduling |
 | Remote development and agent execution | ThinkCentre host | Isolates development workloads from persistent infrastructure services |
-| DNS filtering | Bare-metal Pi 1 pair | Keeps DNS independent from K3s availability |
+| DNS filtering | Bare-metal Pi 2, with a second supported host to be selected | Keeps DNS independent from K3s availability |
 
 Before deploying databases or the pipeline orchestrator, record the chosen products, data paths, ports, backup targets, restore commands, resource limits, and whether they run as systemd services or rootless containers. Do not place them in K3s by accident simply because manifests are convenient.
 
@@ -164,22 +176,23 @@ all:
     execution_nodes:
       hosts: { thinkcentre: {} }
     tailscale_nodes:
-      hosts: { macbook: {}, thinkpad: {}, thinkcentre: {} }
+      hosts: { macbook: {}, thinkpad: {}, thinkcentre: {}, pi2: {} }
     k3s_servers:
       hosts: { thinkpad: {} }
     k3s_workers_supported:
       hosts: { rpi3a: {}, rpi3b: {} }
-    k3s_workers_experimental:
-      hosts: { rpi2: {} }
     pihole_nodes:
-      hosts: { pihole1: {}, pihole2: {} }
+      hosts: { pi2: {} }
+    pi1_sentinel_nodes:
+      hosts: { pi1sentinel: {} }
+    pi1_probe_nodes:
+      hosts: { pi1probe: {} }
     linux_nodes:
       children:
         infra_hosts: {}
         execution_nodes: {}
         k3s_servers: {}
         k3s_workers_supported: {}
-        k3s_workers_experimental: {}
         pihole_nodes: {}
 ```
 
@@ -191,7 +204,7 @@ Required inventory data includes:
 - OS family and expected architecture assertions;
 - SSH user and privilege method;
 - storage device/path declarations;
-- K3s node labels, taints, and enablement flag;
+- K3s node labels and taints;
 - Pi-hole identity and peer settings;
 - Tailscale tags without auth keys;
 - dotfiles profile and pinned repository revision;
@@ -242,17 +255,16 @@ Inputs that must be supplied before implementing this role:
 
 ### Playbooks
 
-- `infra-host.yml`: configure the ThinkPad's persistent host responsibilities without making it a mandatory Ansible controller.
+- `infra-host.yml`: configure the ThinkPad's persistent host responsibilities without installing controller tooling.
 - `base.yml`: common and storage configuration across applicable hosts.
-- `tailscale.yml`: the three designated tailnet nodes only.
+- `tailscale.yml`: the designated tailnet nodes only.
 - `dotfiles.yml`: explicit user-environment step; never hidden inside `common`.
 - `execution-node.yml`: ThinkCentre development runner.
 - `dns.yml`: staged Pi-hole deployment and validation.
 - `k3s.yml`: prerequisites, server, supported workers, and baseline validation.
-- `k3s-admit-experimental.yml`: explicit Pi 2 preflight, admission, and recorded outcome; never called by `site.yml`.
 - `data-platform.yml`: databases and pipeline orchestration after decisions are recorded.
 - `backup.yml`: backup setup and restore probes.
-- `site.yml`: ordered composition of stable playbooks, with disruptive or experimental actions excluded by default.
+- `site.yml`: ordered composition of stable playbooks, with disruptive actions excluded by default.
 - `validate.yml`: read-only fleet, DNS, Tailscale, service, storage, and cluster checks.
 
 ## 11. Delivery Phases and Gates
@@ -288,12 +300,15 @@ Gate: `ansible-inventory --graph`, syntax checks, and a base-role second run suc
 Deliver:
 
 - ThinkPad as the persistent infrastructure host, independently of which machine invokes Ansible;
-- Tailscale on MacBook, ThinkPad, and ThinkCentre;
+- Tailscale on MacBook, ThinkPad, ThinkCentre, and Pi 2;
 - explicit dotfiles playbook for applicable users;
 - hardened headless ThinkCentre with development workspaces and agent tooling;
 - remote development smoke test from MacBook to ThinkCentre.
 
-Gate: the MacBook can administer both Linux computers over Tailscale; the ThinkPad can administer all Linux nodes over LAN; the ThinkCentre can clone a test repository and complete its build/test command without privileged interactive setup.
+Gate: the MacBook can administer every Linux node over the appropriate LAN or
+Tailscale path; the ThinkPad retains independent LAN recovery access to the
+Raspberry Pis; the ThinkCentre can clone a test repository and complete its
+build/test command without privileged interactive setup.
 
 ### Phase 3 — Resilient DNS
 
@@ -314,10 +329,11 @@ Deliver:
 - two Pi 3 workers with architecture labels/constraints;
 - secure token discovery and worker join;
 - kubeconfig handling and cluster validation;
-- optional Pi 2 admission playbook isolated behind an explicit flag/group limit;
 - lightweight sample workload with multi-architecture image verification.
 
-Gate: ThinkPad and both Pi 3 nodes remain `Ready` after reboot; a second run is idempotent; the sample workload lands only on compatible nodes. Pi 2 status is separately recorded as admitted or excluded.
+Gate: ThinkPad and both Pi 3 nodes remain `Ready` after reboot; a second run is
+idempotent; the sample workload lands only on compatible nodes; and the Pi 2
+remains absent from all worker groups.
 
 ### Phase 5 — Data and pipeline platform
 
@@ -361,8 +377,10 @@ Minimum automation checks:
 
 Service-level acceptance examples:
 
-- Tailscale: expected three nodes appear and can reach only intended services.
+- Tailscale: expected four nodes appear and can reach only intended services.
 - Pi-hole: DNS queries succeed through either resolver and block policy is consistent.
+- Pi 1 edge leaves: the probe reports host reachability, while the sentinel
+  reports Pi 2 UDP DNS, TCP DNS, HTTP, and self-heartbeat status.
 - K3s: expected nodes are `Ready`, architecture labels are correct, and a multi-arch smoke workload completes.
 - Database: create, read, backup, restore, and read again.
 - Pipeline: submit a test run, observe completion, and retrieve logs/artifacts.
@@ -402,7 +420,6 @@ Service-level acceptance examples:
 │   │   ├── execution-node.yml
 │   │   ├── dns.yml
 │   │   ├── k3s.yml
-│   │   ├── k3s-admit-experimental.yml
 │   │   ├── data-platform.yml
 │   │   ├── backup.yml
 │   │   ├── validate.yml
@@ -420,7 +437,8 @@ Service-level acceptance examples:
 ├── tests/
 ├── Makefile
 ├── README.md
-└── bootstrap.sh
+├── bootstrap.sh
+└── install.sh
 ```
 
 Do not create empty role trees in bulk. Add each role with its defaults, argument validation, handlers, tests, and documentation when its phase begins.
@@ -429,7 +447,7 @@ Do not create empty role trees in bulk. Add each role with its defaults, argumen
 
 - High-availability K3s control planes or etcd quorum.
 - Adding the ThinkCentre or Pi-hole machines to K3s.
-- Making the Pi 2 part of baseline cluster success.
+- Adding the dedicated Pi-hole Pi 2 to K3s.
 - Running Pi-hole in Kubernetes or containers.
 - Public ingress to homelab admin services.
 - Automatic router reconfiguration unless the router and rollback path are deliberately brought into scope.
@@ -438,20 +456,19 @@ Do not create empty role trees in bulk. Add each role with its defaults, argumen
 
 ## 16. Decisions Still Required
 
-Resolve these during Phase 0 and record the answers in inventory/group vars or an architecture decision record:
+The canonical backlog is
+`docs/decisions/open-decisions.md`. It consolidates the remaining Phase 0
+facts, DNS hardware/network policy, Tailscale and dotfiles promotion, data and
+pipeline products, backup/durability, monitoring, and the second DNS host.
+Resolve those entries in inventory/group vars or an architecture decision
+record; do not create parallel decision lists.
 
-1. Exact hardware names, RAM, disks, current OS versions, and desired rebuild OS images.
-2. LAN subnet, reservations, local domain, router/DHCP capabilities, and emergency DNS.
-3. Whether the ThinkPad uses the K3s default SQLite datastore or another supported datastore.
-4. Which databases and pipeline orchestration platform are required.
-5. Host-service runtime for stateful tools: native systemd packages or rootless containers.
-6. Backup repository target, retention, encryption, and off-machine/off-site copy.
-7. Secret system: Ansible Vault for v1 or an external secret manager.
-8. Tailscale ACL/tags, Tailscale SSH choice, key expiry, and Mac client variant.
-9. Dotfiles repository URL, installer, profiles, pin, and secret boundaries.
-10. ThinkCentre workspace isolation, storage cleanup, and concurrency/resource policy for agents.
-11. K3s ingress, storage class, bundled component policy, and GitOps timing.
-12. Monitoring stack and notification destination.
+The controller Python/Ansible/uv boundary, Ansible Vault, OpenSSH recovery,
+Tailscale SSH exclusion, tagged Linux nodes, Docker placement, K3s SQLite and
+bundled components, and the current no-GitOps baseline are settled. See
+`docs/decisions/0001-vault-and-access.md`,
+`docs/decisions/0002-edge-node-architecture.md`, and
+`docs/decisions/0003-python-ansible-uv-bootstrap.md`.
 
 ## 17. Instructions for Future Agents
 
@@ -459,8 +476,9 @@ Resolve these during Phase 0 and record the answers in inventory/group vars or a
 2. Work one delivery phase at a time and do not silently select products listed as unresolved.
 3. Keep changes within this repository unless the operator explicitly authorizes changes to the dotfiles repository, router, tailnet policy, or live hosts.
 4. Preserve group-driven behavior and mixed-architecture preflight checks.
-5. Do not add the Pi 2 to the default K3s worker set. Admission is an explicit test result.
-6. Do not add either Pi 1 to K3s. They are bare-metal DNS appliances.
+5. Do not add the dedicated Pi-hole Pi 2 to any K3s worker set.
+6. Do not add either 256 MB Pi 1 to K3s, Pi-hole, or managed inventory without
+   an explicit noncritical ARMv6 exception.
 7. Keep the ThinkCentre out of K3s; its primary purpose is remote agentic development.
 8. Prefer Ansible modules and templates over shell commands; explain unavoidable commands.
 9. Never commit live addresses if the repository is intended to be public, and never commit secrets under any circumstances.
@@ -473,13 +491,16 @@ Resolve these during Phase 0 and record the answers in inventory/group vars or a
 The broadened homelab baseline is complete when:
 
 - the MacBook can bootstrap or recover the ThinkPad;
-- the ThinkPad can idempotently configure every Linux host over the LAN;
-- the MacBook, ThinkPad, and ThinkCentre are reachable through the intended Tailscale policy;
+- the MacBook can idempotently configure every Linux host;
+- the MacBook, ThinkPad, ThinkCentre, and Pi 2 are reachable through the intended Tailscale policy;
 - dotfiles are applied from the external repository through a pinned, explicit Ansible step;
 - the ThinkCentre passes a remote agentic-development smoke test;
 - both Pi-hole nodes can independently serve DNS and can be rebuilt from code plus encrypted configuration;
 - the ThinkPad K3s server and two Pi 3 workers recover after reboot and pass workload validation;
-- the Pi 2 has a documented admitted/excluded result without affecting baseline success;
+- the Pi 2 runs Pi-hole, Tailscale, and fixed WoL commands while remaining
+  absent from every K3s worker group;
+- the 8 GB Pi 1 probe and 32 GB Pi 1 sentinel remain stateless and recoverable
+  from their purpose-specific profiles;
 - databases and pipeline orchestration have named state, health checks, backups, and tested restores;
 - validation and recovery runbooks do not depend on the component they are meant to recover;
 - a second full stable playbook run reports no unexplained changes;

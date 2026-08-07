@@ -1,2 +1,4 @@
 - name: Restart ssh
-  ansible.builtin.service: {name: ssh, state: restarted}
+  ansible.builtin.service:
+    name: "{{ common_ssh_service_name }}"
+    state: restarted

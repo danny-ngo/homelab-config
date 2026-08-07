@@ -1,0 +1,627 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <meta name="description" content="Maintenance and recovery runbook for a minimal Arch Linux ThinkCentre Tiny using CachyOS optimized repositories and kernel.">
+  <title>ThinkCentre Tiny · Arch + CachyOS Maintenance Runbook</title>
+  <style>
+    :root {
+      --bg: #f3f1eb;
+      --paper: #fffdf8;
+      --ink: #17201d;
+      --muted: #66706b;
+      --line: #d8d7cf;
+      --soft: #ebe9e2;
+      --accent: #0c7358;
+      --accent-soft: #dcefe7;
+      --blue: #245f87;
+      --blue-soft: #e1edf5;
+      --amber: #8a5a08;
+      --amber-soft: #f7ecd2;
+      --red: #963f35;
+      --red-soft: #f5e1dd;
+      --code: #14221d;
+      --code-ink: #e9f4ef;
+      color-scheme: light;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: var(--bg);
+      color: var(--ink);
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #111714;
+        --paper: #17201c;
+        --ink: #edf3ef;
+        --muted: #a4b0a9;
+        --line: #34413b;
+        --soft: #202b26;
+        --accent: #73d6b3;
+        --accent-soft: #163c31;
+        --blue: #8fc7ee;
+        --blue-soft: #193448;
+        --amber: #f0c66c;
+        --amber-soft: #413316;
+        --red: #f19c90;
+        --red-soft: #482723;
+        --code: #09110e;
+        --code-ink: #dcf0e7;
+        color-scheme: dark;
+      }
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; scroll-padding-top: 1.5rem; }
+    body { margin: 0; background: var(--bg); color: var(--ink); }
+    a { color: var(--blue); text-underline-offset: .18em; }
+    a:hover { text-decoration-thickness: 2px; }
+    a:focus-visible, summary:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
+    code, pre { font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace; }
+    code { font-size: .92em; }
+    :not(pre) > code { background: var(--soft); border-radius: .3rem; padding: .1em .34em; }
+    pre { margin: .8rem 0 0; padding: 1rem 1.1rem; border-radius: .7rem; overflow-x: auto; background: var(--code); color: var(--code-ink); font-size: .82rem; line-height: 1.55; box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--code-ink) 10%, transparent); }
+    .page { width: min(1320px, 100%); margin: 0 auto; padding: 2rem clamp(1rem, 3vw, 2.5rem) 5rem; }
+    .masthead { border-bottom: 1px solid var(--line); padding: 2.5rem 0 2rem; }
+    .kicker, .section-label, dt, th { font-size: .74rem; line-height: 1.3; font-weight: 750; letter-spacing: .09em; text-transform: uppercase; }
+    .kicker { color: var(--accent); margin: 0 0 .8rem; }
+    h1 { max-width: 13ch; margin: 0; font-size: clamp(2.4rem, 7vw, 5.5rem); line-height: .96; letter-spacing: -.065em; font-weight: 760; }
+    .lede { max-width: 72ch; margin: 1.35rem 0 0; color: var(--muted); font-size: clamp(1rem, 2vw, 1.2rem); line-height: 1.65; }
+    .meta { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: 1.4rem; }
+    .pill { display: inline-flex; align-items: center; gap: .42rem; padding: .38rem .68rem; border: 1px solid var(--line); border-radius: 999px; background: var(--paper); font-size: .8rem; }
+    .pill::before { content: ""; width: .48rem; height: .48rem; border-radius: 50%; background: var(--accent); }
+    .status-strip { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .75rem; margin: 1.25rem 0 2rem; }
+    .status-strip article { border: 1px solid var(--line); border-radius: .8rem; padding: .9rem; background: var(--paper); }
+    .status-strip span { display: block; color: var(--muted); font-size: .76rem; }
+    .status-strip strong { display: block; margin-top: .3rem; font-size: 1rem; line-height: 1.3; }
+    .layout { display: grid; grid-template-columns: 255px minmax(0, 1fr); gap: clamp(1.5rem, 4vw, 4rem); align-items: start; }
+    .toc { position: sticky; top: 1rem; border: 1px solid var(--line); border-radius: .8rem; background: var(--paper); padding: 1rem; }
+    .toc p { margin: 0 0 .7rem; }
+    .toc ul { list-style: none; padding: 0; margin: 0; }
+    .toc li { border-top: 1px solid var(--line); }
+    .toc li:first-child { border-top: 0; }
+    .toc a { display: block; padding: .55rem 0; color: var(--ink); text-decoration: none; font-size: .82rem; line-height: 1.3; }
+    .toc .install { margin-top: .8rem; padding: .65rem .75rem; border-radius: .55rem; background: var(--accent); color: #fff; text-align: center; font-weight: 700; }
+    main { min-width: 0; }
+    section { padding: 2rem 0; border-bottom: 1px solid var(--line); }
+    section:last-child { border-bottom: 0; }
+    h2 { margin: 0; font-size: clamp(1.55rem, 3vw, 2.35rem); letter-spacing: -.04em; line-height: 1.08; }
+    h3 { margin: 1.55rem 0 .35rem; font-size: 1.08rem; letter-spacing: -.015em; }
+    p, li { line-height: 1.62; }
+    p { margin: .65rem 0 0; }
+    ul, ol { padding-left: 1.25rem; }
+    li + li { margin-top: .3rem; }
+    .section-intro { max-width: 72ch; color: var(--muted); }
+    .callout { margin-top: 1rem; border-left: 4px solid var(--blue); border-radius: .2rem .65rem .65rem .2rem; padding: .85rem 1rem; background: var(--blue-soft); }
+    .callout strong { display: block; margin-bottom: .2rem; }
+    .callout.warning { border-color: var(--amber); background: var(--amber-soft); }
+    .callout.danger { border-color: var(--red); background: var(--red-soft); }
+    .callout.success { border-color: var(--accent); background: var(--accent-soft); }
+    .grid-2, .grid-3 { display: grid; gap: .8rem; margin-top: 1rem; }
+    .grid-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .grid-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .card { border: 1px solid var(--line); border-radius: .75rem; background: var(--paper); padding: 1rem; }
+    .card h3 { margin: 0; }
+    .card p { color: var(--muted); font-size: .9rem; }
+    .card ul { margin-bottom: 0; font-size: .9rem; }
+    .run { margin-top: 1.2rem; border: 1px solid var(--line); border-radius: .8rem; background: var(--paper); overflow: hidden; }
+    .run-head { display: grid; grid-template-columns: 3.2rem minmax(0, 1fr); gap: .8rem; align-items: center; padding: .8rem 1rem; background: var(--soft); border-bottom: 1px solid var(--line); }
+    .run-num { width: 2.2rem; height: 2.2rem; display: grid; place-items: center; border-radius: 50%; background: var(--accent); color: #fff; font-weight: 800; font-size: .8rem; }
+    .run-head h3 { margin: 0; }
+    .run-body { padding: 1rem; }
+    .run-body > :first-child { margin-top: 0; }
+    dl { display: grid; grid-template-columns: 10rem minmax(0, 1fr); margin: 1rem 0 0; border-top: 1px solid var(--line); }
+    dt, dd { margin: 0; padding: .72rem 0; border-bottom: 1px solid var(--line); }
+    dt { color: var(--muted); }
+    dd { padding-left: 1rem; line-height: 1.5; }
+    table { width: 100%; border-collapse: collapse; margin-top: 1rem; }
+    th, td { padding: .75rem .65rem; text-align: left; vertical-align: top; border-bottom: 1px solid var(--line); }
+    th { color: var(--muted); }
+    td { font-size: .9rem; line-height: 1.45; }
+    details { margin-top: .8rem; border: 1px solid var(--line); border-radius: .65rem; background: var(--paper); }
+    summary { cursor: pointer; padding: .8rem 1rem; font-weight: 750; }
+    details > div { padding: 0 1rem 1rem; }
+    .checklist { list-style: none; padding: 0; margin: 1rem 0 0; }
+    .checklist li { position: relative; padding: .58rem .75rem .58rem 2.35rem; border-top: 1px solid var(--line); }
+    .checklist li::before { content: "□"; position: absolute; left: .65rem; color: var(--accent); font-size: 1.2rem; line-height: 1.2; }
+    .checklist li:last-child { border-bottom: 1px solid var(--line); }
+    .source-list { columns: 2; column-gap: 2rem; }
+    .source-list li { break-inside: avoid; margin-bottom: .45rem; }
+    footer { display: flex; flex-wrap: wrap; justify-content: space-between; gap: .75rem; padding-top: 1.5rem; color: var(--muted); font-size: .8rem; }
+    @media (max-width: 900px) {
+      .status-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .layout { grid-template-columns: 1fr; }
+      .toc { position: static; }
+      .toc ul { columns: 2; column-gap: 1.5rem; }
+      .toc li { break-inside: avoid; }
+      .grid-3 { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 620px) {
+      .page { padding-inline: .85rem; }
+      .status-strip, .grid-2 { grid-template-columns: 1fr; }
+      .toc ul, .source-list { columns: 1; }
+      dl { grid-template-columns: 1fr; }
+      dt { border-bottom: 0; padding-bottom: 0; }
+      dd { padding-left: 0; }
+      table, tbody, tr, td { display: block; }
+      thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+      tr { padding: .5rem 0; border-bottom: 1px solid var(--line); }
+      td { border: 0; padding: .3rem 0; }
+      .run-head { grid-template-columns: 2.5rem minmax(0, 1fr); }
+    }
+    @media print {
+      :root { --bg: #fff; --paper: #fff; --ink: #000; --muted: #444; --line: #bbb; --soft: #eee; --code: #f3f3f3; --code-ink: #000; color-scheme: light; }
+      @page { margin: 14mm; }
+      .page { width: auto; padding: 0; }
+      .masthead { padding-top: 0; }
+      .layout { display: block; }
+      .toc { position: static; margin: 1rem 0; }
+      .toc .install { display: none; }
+      pre, .card, .callout, .run, details { break-inside: avoid; box-shadow: none; }
+      a { color: #000; text-decoration: none; }
+      a[href^="http"]::after { content: " (" attr(href) ")"; font-size: .72em; overflow-wrap: anywhere; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <header class="masthead">
+      <p class="kicker">ThinkCentre Tiny · operator runbook · reviewed 16 July 2026</p>
+      <h1>Arch + CachyOS maintenance runbook</h1>
+      <p class="lede">The normal rhythm and recovery procedures for a rebuildable remote execution node. Use this runbook to keep Arch and CachyOS current without turning routine updates into an availability gamble.</p>
+      <div class="meta" aria-label="Runbook properties">
+        <span class="pill">Controlled full upgrades</span>
+        <span class="pill">Dual-kernel recovery</span>
+        <span class="pill">Physical console available</span>
+        <span class="pill">No unique service state</span>
+      </div>
+    </header>
+
+    <div class="status-strip" aria-label="Operating posture">
+      <article><span>Upgrade cadence</span><strong>Every 1–2 weeks</strong></article>
+      <article><span>Reboot policy</span><strong>Deliberate, never blind</strong></article>
+      <article><span>Primary boot</span><strong>linux-cachyos</strong></article>
+      <article><span>Recovery boot</span><strong>Official linux-lts</strong></article>
+    </div>
+
+    <div class="layout">
+      <aside class="toc" aria-label="Table of contents">
+        <p class="section-label">Runbook index</p>
+        <ul>
+          <li><a href="#principles">Operating principles</a></li>
+          <li><a href="#schedule">Maintenance schedule</a></li>
+          <li><a href="#update">Controlled update</a></li>
+          <li><a href="#boot">Kernel and boot control</a></li>
+          <li><a href="#capacity">Capacity and housekeeping</a></li>
+          <li><a href="#backup">Configuration backup</a></li>
+          <li><a href="#kernel-failure">Kernel boot failure</a></li>
+          <li><a href="#network-failure">Network or SSH failure</a></li>
+          <li><a href="#disk-full">Disk full</a></li>
+          <li><a href="#pacman-failure">Pacman interruption</a></li>
+          <li><a href="#repo-recovery">CachyOS repo recovery</a></li>
+          <li><a href="#live-recovery">Live USB recovery</a></li>
+          <li><a href="#rebuild">Rebuild and retire</a></li>
+        </ul>
+        <a class="install" href="thinkcentre-arch-cachyos-install.html">← Installation guide</a>
+      </aside>
+
+      <main>
+        <section id="principles">
+          <p class="section-label">01 · Posture</p>
+          <h2>Keep failure cheap and observable</h2>
+          <p class="section-intro">The machine is an always-on remote development appliance, not a source-of-truth host. Its availability matters while work is running, but recovery should favour a clean boot or rebuild over heroic repair. Project source must be recoverable from GitHub; see the <a href="runbooks/thinkcentre-workspaces.md">workspace durability policy</a>.</p>
+          <div class="grid-2">
+            <article class="card"><h3>Always true</h3><ul><li>Complete upgrades only: <code>pacman -Syu</code>.</li><li>CachyOS repositories remain above Arch repositories.</li><li>Primary and fallback kernels stay installed.</li><li>Configuration is committed before risky changes.</li><li>No automatic reboot after package updates.</li></ul></article>
+            <article class="card"><h3>Never normal</h3><ul><li>Running <code>pacman -Sy package</code>.</li><li>Deleting the fallback kernel to save space.</li><li>Ignoring pacman, initramfs or DKMS errors.</li><li>Running cleanup with <code>--volumes</code> casually.</li><li>Keeping unique credentials or project state only here.</li></ul></article>
+          </div>
+          <div class="callout"><strong>Severity model.</strong> A broken primary kernel is a low-severity incident when the LTS entry and local console work. A damaged boot filesystem or lost configuration is higher severity, which is why both are checked and backed up explicitly.</div>
+        </section>
+
+        <section id="schedule">
+          <p class="section-label">02 · Schedule</p>
+          <h2>Use a small, repeatable maintenance rhythm</h2>
+          <table>
+            <thead><tr><th>Cadence</th><th>Actions</th><th>Escalate when</th></tr></thead>
+            <tbody>
+              <tr><td>Before work</td><td>Confirm SSH/Tailscale, free space and no failed units if the node has been idle.</td><td>The host rebooted unexpectedly, storage changed, or the previous session ended abnormally.</td></tr>
+              <tr><td>End of work session</td><td>Review changes, run relevant tests, commit intentional project source and push the active branch to GitHub.</td><td>The repository has no expected remote, the branch has no upstream, or unique work cannot be safely committed or backed up.</td></tr>
+              <tr><td>Every 1–2 weeks</td><td>Read Arch news, inspect pending updates, run the controlled update workflow, reboot and smoke-test.</td><td>Core packages, kernel, bootloader, microcode or filesystem tools report errors.</td></tr>
+              <tr><td>Monthly</td><td>Review Docker storage, package cache, journal size, SMART, temperatures and configuration drift.</td><td>Disk exceeds 80%, SMART is not healthy, or sustained load thermally throttles.</td></tr>
+              <tr><td>Quarterly</td><td>Boot LTS deliberately, boot the Arch USB, confirm backups can recreate inventory, and run an Ansible check.</td><td>The fallback entry or recovery media does not work.</td></tr>
+              <tr><td>Before absence</td><td>Leave the host on a known-good kernel; avoid major upgrades immediately before travel.</td><td>No trusted person can reach the physical console.</td></tr>
+            </tbody>
+          </table>
+        </section>
+
+        <section id="update">
+          <p class="section-label">03 · Routine procedure</p>
+          <h2>Perform a controlled full-system update</h2>
+          <div class="run">
+            <div class="run-head"><span class="run-num">1</span><h3>Preflight</h3></div>
+            <div class="run-body">
+              <p>Do boot-chain updates while at home. A normal userspace update can be done remotely, but do not schedule a reboot until physical recovery is practical.</p>
+              <pre><code>date
+uptime
+uname -r
+systemctl --failed
+df -h / /boot
+findmnt /boot
+bootctl list
+tailscale status
+docker ps --format 'table {{.Names}}\t{{.Status}}'
+sudo journalctl -b -p err --no-pager</code></pre>
+              <ul class="checklist"><li>No unexplained failed units.</li><li>At least 5 GiB free on root and 250 MiB free on the ESP.</li><li>Both CachyOS and LTS boot entries are present.</li><li>Important work is committed or backed up.</li></ul>
+            </div>
+          </div>
+          <div class="run">
+            <div class="run-head"><span class="run-num">2</span><h3>Review change sources</h3></div>
+            <div class="run-body">
+              <p>Read <a href="https://archlinux.org/news/">Arch Linux news</a> and CachyOS announcements relevant to the kernel or repositories. Preview repository updates without performing a partial upgrade:</p>
+              <pre><code>checkupdates || true
+pacman -Qu
+pacman-conf --repo-list</code></pre>
+              <p><code>checkupdates</code> comes from <code>pacman-contrib</code> and uses a temporary database, preserving Arch’s full-upgrade rule.</p>
+            </div>
+          </div>
+          <div class="run">
+            <div class="run-head"><span class="run-num">3</span><h3>Upgrade and read all output</h3></div>
+            <div class="run-body">
+              <pre><code>sudo pacman -Syu</code></pre>
+              <p>Stop before rebooting if pacman reports an initramfs generation error, bootloader error, file conflict, signature problem, DKMS failure or a <code>.pacnew</code> file for a configuration you depend on.</p>
+              <pre><code>find /etc -xdev -type f \( -name '*.pacnew' -o -name '*.pacsave' \) -print
+sudo tail -n 120 /var/log/pacman.log
+sudo mkinitcpio -P
+sudo bootctl update
+bootctl</code></pre>
+              <p>The explicit initramfs rebuild is a verification step. It must complete cleanly for both installed kernels.</p>
+            </div>
+          </div>
+          <div class="run">
+            <div class="run-head"><span class="run-num">4</span><h3>Reboot deliberately</h3></div>
+            <div class="run-body">
+              <pre><code>sudo systemctl reboot</code></pre>
+              <p>If the host does not return within its normal boot time plus two minutes, stop retrying remotely and use the physical console.</p>
+            </div>
+          </div>
+          <div class="run">
+            <div class="run-head"><span class="run-num">5</span><h3>Post-update smoke test</h3></div>
+            <div class="run-body">
+              <pre><code>uname -r
+systemctl --failed
+journalctl -b -p err --no-pager
+networkctl status
+resolvectl status
+tailscale status
+docker version
+docker run --rm hello-world
+swapon --show
+df -h / /boot
+sensors
+sudo smartctl -H /dev/nvme0n1</code></pre>
+              <div class="callout success"><strong>Close the maintenance window only when remote development works.</strong> Clone or open a repository, run a small build/test, and start a disposable container. A green boot alone is insufficient.</div>
+            </div>
+          </div>
+        </section>
+
+        <section id="boot">
+          <p class="section-label">04 · Boot control</p>
+          <h2>Manage primary, one-shot and fallback kernels</h2>
+          <dl>
+            <dt>Persistent default</dt><dd><code>sudo bootctl set-default arch-cachyos.conf</code></dd>
+            <dt>Next boot only: LTS</dt><dd><code>sudo systemctl reboot --boot-loader-entry=arch-lts.conf</code></dd>
+            <dt>Next boot only: CachyOS</dt><dd><code>sudo systemctl reboot --boot-loader-entry=arch-cachyos.conf</code></dd>
+            <dt>List and parse</dt><dd><code>bootctl list</code> and <code>bootctl</code></dd>
+            <dt>Update loader binary</dt><dd><code>sudo bootctl update</code></dd>
+            <dt>Firmware setup</dt><dd><code>sudo systemctl reboot --firmware-setup</code></dd>
+          </dl>
+          <h3>Quarterly fallback drill</h3>
+          <ol>
+            <li>Commit or stop active work.</li>
+            <li>One-shot boot <code>arch-lts.conf</code>.</li>
+            <li>Verify LAN, Tailscale, SSH, Docker and storage.</li>
+            <li>Inspect <code>journalctl -b -p err</code>.</li>
+            <li>One-shot boot back to <code>arch-cachyos.conf</code>.</li>
+          </ol>
+          <div class="callout warning"><strong>Do not confuse the fallback initramfs with the fallback kernel.</strong> <code>initramfs-linux-cachyos-fallback.img</code> contains broader module detection for the same CachyOS kernel. The independent recovery path is the separate <code>linux-lts</code> package and entry.</div>
+        </section>
+
+        <section id="capacity">
+          <p class="section-label">05 · Capacity</p>
+          <h2>Keep caches, logs and heat bounded</h2>
+          <div class="grid-3">
+            <article class="card"><h3>Storage</h3><pre><code>df -h /
+df -h /boot
+sudo du -xhd1 /var | sort -h
+du -xhd1 ~ | sort -h</code></pre></article>
+            <article class="card"><h3>Docker</h3><pre><code>docker system df -v
+docker ps -a
+docker image ls
+docker volume ls</code></pre></article>
+            <article class="card"><h3>Thermals</h3><pre><code>sensors
+sudo journalctl -k \
+  --grep='thermal|thrott' \
+  --no-pager</code></pre></article>
+          </div>
+          <h3>Safe cleanup order</h3>
+          <pre><code># Keep three package versions; remove older cached packages.
+sudo paccache -r
+
+# Remove only stopped containers and images older than seven days.
+docker container prune
+docker image prune -a --filter 'until=168h'
+
+# Keep two weeks of journal data within the configured size cap.
+sudo journalctl --vacuum-time=14d
+
+# Remove failed downloads and tool-specific caches only after review.
+du -sh ~/.cache/* 2&gt;/dev/null | sort -h</code></pre>
+          <div class="callout danger"><strong>Never automate <code>docker system prune --volumes</code>.</strong> Volumes can contain databases, dependency caches or test fixtures whose value is not obvious from the name. Inspect them individually.</div>
+          <h3>Monthly hardware check</h3>
+          <pre><code>sudo smartctl -a /dev/nvme0n1
+sudo smartctl -t short /dev/nvme0n1
+# After the device-reported wait time:
+sudo smartctl -l selftest /dev/nvme0n1
+systemctl status fstrim.timer smartd.service --no-pager</code></pre>
+        </section>
+
+        <section id="backup">
+          <p class="section-label">06 · Rebuild data</p>
+          <h2>Back up configuration, not machine identity by accident</h2>
+          <p class="section-intro">The desired state lives in Git and encrypted Vault files. Backups should make reconstruction fast without copying transient containers, package caches or host secrets into the repository.</p>
+          <h3>Capture a rebuild manifest</h3>
+          <pre><code>mkdir -p ~/rebuild-manifest
+pacman -Qqen &gt; ~/rebuild-manifest/repo-packages.txt
+pacman -Qqem &gt; ~/rebuild-manifest/foreign-packages.txt
+systemctl list-unit-files --state=enabled &gt; ~/rebuild-manifest/enabled-units.txt
+bootctl list &gt; ~/rebuild-manifest/boot-entries.txt
+lsblk -f &gt; ~/rebuild-manifest/filesystems.txt
+tailscale status &gt; ~/rebuild-manifest/tailscale-status.txt</code></pre>
+          <h3>Back up or reproduce</h3>
+          <table>
+            <thead><tr><th>Material</th><th>Policy</th></tr></thead>
+            <tbody>
+              <tr><td>Homelab configuration and dotfiles</td><td>Push clean commits to their remotes. Keep encrypted Vault material backed up separately.</td></tr>
+              <tr><td>SSH authorized keys and host fingerprints</td><td>Authorized public keys may be declarative. Protect host private keys if preserving host identity; otherwise expect and verify a new fingerprint after rebuild.</td></tr>
+              <tr><td>Codex/T3 credentials</td><td>Do not commit or casually copy token stores. Prefer a fresh device login after rebuild.</td></tr>
+              <tr><td>Project source</td><td>Commit and push at meaningful checkpoints, before switching machines, before maintenance, and at session end. Back up work that cannot yet be committed. Do not rely on stashes or local Docker volumes as durable source control.</td></tr>
+              <tr><td>Pacman cache and Docker images</td><td>Re-download. Retain only enough package cache for immediate rollback.</td></tr>
+            </tbody>
+          </table>
+        </section>
+
+        <section id="kernel-failure">
+          <p class="section-label">Incident A</p>
+          <h2>CachyOS kernel does not boot or the host never returns</h2>
+          <ol>
+            <li>Connect the monitor and keyboard. Power-cycle once.</li>
+            <li>At the systemd-boot menu, select <strong>Arch Linux (LTS fallback)</strong>.</li>
+            <li>If the menu is hidden, hold or tap <kbd>Space</kbd> immediately after firmware initialization.</li>
+            <li>After LTS boots, gather evidence before changing packages.</li>
+          </ol>
+          <pre><code>uname -r
+sudo journalctl -b -1 -k --no-pager
+sudo journalctl -b -1 -p err --no-pager
+sudo tail -n 160 /var/log/pacman.log
+bootctl list
+ls -lh /boot/vmlinuz-* /boot/initramfs-*</code></pre>
+          <h3>Choose one recovery</h3>
+          <details open>
+            <summary>Stay on LTS temporarily</summary>
+            <div><pre><code>sudo bootctl set-default arch-lts.conf
+sudo pacman -Syu</code></pre><p>This is the lowest-risk response. Keep the failing CachyOS entry installed while checking for a fixed update.</p></div>
+          </details>
+          <details>
+            <summary>Reinstall the current CachyOS kernel</summary>
+            <div><pre><code>sudo pacman -S linux-cachyos
+sudo mkinitcpio -P
+bootctl
+sudo systemctl reboot --boot-loader-entry=arch-cachyos.conf</code></pre></div>
+          </details>
+          <details>
+            <summary>Downgrade from the package cache</summary>
+            <div><pre><code>ls -1t /var/cache/pacman/pkg/linux-cachyos-*.pkg.tar.zst
+sudo pacman -U /var/cache/pacman/pkg/linux-cachyos-PREVIOUS.pkg.tar.zst
+sudo mkinitcpio -P
+sudo systemctl reboot --boot-loader-entry=arch-cachyos.conf</code></pre><p>Use this only as a short bridge. Do not hold the kernel indefinitely; upgrade normally when the regression is fixed.</p></div>
+          </details>
+        </section>
+
+        <section id="network-failure">
+          <p class="section-label">Incident B</p>
+          <h2>LAN, DNS, Tailscale or SSH is unavailable</h2>
+          <p>Use the local console. Diagnose from the lowest layer upward.</p>
+          <pre><code>ip link
+ip address
+ip route
+networkctl status
+resolvectl status
+rfkill
+iwctl device list
+iwctl station WIFI_DEVICE show
+ping -c 3 YOUR_ROUTER_IP
+ping -c 3 1.1.1.1
+ping -c 3 archlinux.org
+systemctl status iwd systemd-networkd systemd-resolved tailscaled sshd --no-pager
+sudo sshd -t
+sudo journalctl -b -u iwd -u systemd-networkd -u systemd-resolved -u tailscaled -u sshd --no-pager</code></pre>
+          <table>
+            <thead><tr><th>Symptom</th><th>Likely action</th></tr></thead>
+            <tbody>
+              <tr><td>No wired address</td><td>Check cable/link LEDs, router lease and <code>/etc/systemd/network/20-wired.network</code>. Ensure no second network manager owns the interface.</td></tr>
+              <tr><td>USB Wi-Fi is absent or disconnected</td><td>Check <code>lsusb</code>, <code>rfkill</code>, <code>iwctl device list</code>, the saved profile in <code>/var/lib/iwd</code> and <code>/etc/systemd/network/30-wireless.network</code>. Reconnect with <code>iwctl station WIFI_DEVICE connect "WIFI_SSID"</code>; do not enable iwd’s built-in DHCP.</td></tr>
+              <tr><td>IP works; names fail</td><td>Verify <code>/etc/resolv.conf</code> links to <code>../run/systemd/resolve/stub-resolv.conf</code>, then restart resolved.</td></tr>
+              <tr><td>LAN works; Tailscale fails</td><td>Inspect <code>tailscale status</code> and service logs; reauthenticate only if the node is actually logged out.</td></tr>
+              <tr><td>Ping works; SSH fails</td><td>Run <code>sshd -t</code>, correct the config, then restart <code>sshd</code>. Do not delete host keys.</td></tr>
+            </tbody>
+          </table>
+        </section>
+
+        <section id="disk-full">
+          <p class="section-label">Incident C</p>
+          <h2>Root or the EFI System Partition is full</h2>
+          <ol>
+            <li>Stop active builds and package operations.</li>
+            <li>Identify the owner; do not delete random files from <code>/var</code> or <code>/boot</code>.</li>
+          </ol>
+          <pre><code>df -h / /boot
+sudo du -xhd1 /var | sort -h
+sudo du -xhd1 /var/lib | sort -h
+du -xhd1 ~ | sort -h
+docker system df -v
+sudo journalctl --disk-usage
+ls -lh /boot</code></pre>
+          <h3>Recover space in this order</h3>
+          <pre><code>sudo paccache -r
+docker container prune
+docker image prune -a --filter 'until=168h'
+sudo journalctl --vacuum-size=400M</code></pre>
+          <p>If <code>/boot</code> is full, confirm which kernel packages own each file with <code>pacman -Qo</code>. Remove only an intentionally retired kernel package through pacman—never delete its image manually.</p>
+        </section>
+
+        <section id="pacman-failure">
+          <p class="section-label">Incident D</p>
+          <h2>Pacman was interrupted, locked or reports inconsistent files</h2>
+          <div class="callout danger"><strong>Do not reboot during an incomplete kernel, systemd, glibc or pacman transaction.</strong> Repair the package state first.</div>
+          <h3>Confirm no package manager is still running</h3>
+          <pre><code>ps aux | grep -E '[p]acman|[m]akepkg'
+sudo lsof /var/lib/pacman/db.lck 2&gt;/dev/null</code></pre>
+          <p>Only if no package process owns the lock:</p>
+          <pre><code>sudo rm /var/lib/pacman/db.lck
+sudo pacman -Syu
+sudo pacman -Qk
+sudo mkinitcpio -P
+sudo bootctl update</code></pre>
+          <h3>Signature or keyring errors</h3>
+          <pre><code>sudo pacman -Sy --needed archlinux-keyring cachyos-keyring
+sudo pacman -Su</code></pre>
+          <p>This sequence immediately completes the full upgrade after refreshing the databases. Do not insert unrelated package installations between the two commands.</p>
+        </section>
+
+        <section id="repo-recovery">
+          <p class="section-label">Incident E</p>
+          <h2>Disable or fully remove the CachyOS package layer</h2>
+          <p class="section-intro">Prefer booting LTS and waiting for a mirror or packaging fix. Perform a full repository rollback only when the CachyOS layer itself is the confirmed cause or you intentionally return to stock Arch.</p>
+          <h3>Use the official removal helper</h3>
+          <pre><code>mkdir -p ~/setup/cachyos-remove
+cd ~/setup/cachyos-remove
+curl -O https://mirror.cachyos.org/cachyos-repo.tar.xz
+tar -xf cachyos-repo.tar.xz
+cd cachyos-repo
+sudo ./cachyos-repo.sh --remove
+sudo pacman -Syu</code></pre>
+          <h3>Verify the result</h3>
+          <pre><code>pacman-conf --repo-list
+pacman -Q pacman
+pacman -Qqn | sudo pacman -S -
+sudo pacman -Syu
+sudo mkinitcpio -P</code></pre>
+          <p>The reinstall pass selects stock Arch providers for every available repository package. Foreign/AUR packages remain separate and may need rebuilding.</p>
+          <div class="callout warning"><strong>Keep <code>linux-lts</code> throughout the rollback.</strong> Remove <code>linux-cachyos</code> only after the system boots normally from Arch repositories and the LTS entry has been retested.</div>
+        </section>
+
+        <section id="live-recovery">
+          <p class="section-label">Incident F</p>
+          <h2>Neither installed entry reaches a usable console</h2>
+          <ol>
+            <li>Boot the verified Arch USB in UEFI mode.</li>
+            <li>Establish Internet over Ethernet or the known-working USB Wi-Fi adapter, then identify the disk.</li>
+            <li>Mount root and the ESP, then enter the installation.</li>
+          </ol>
+          <pre><code>rfkill unblock wifi
+iwctl device list
+iwctl station WIFI_DEVICE connect "WIFI_SSID"
+ping -c 3 archlinux.org
+
+lsblk -f
+mount /dev/nvme0n1p2 /mnt
+mount /dev/nvme0n1p1 /mnt/boot
+arch-chroot /mnt
+
+findmnt / /boot
+pacman -Syu linux-lts linux-firmware iwd intel-ucode
+mkinitcpio -P
+bootctl --esp-path=/boot install
+bootctl
+exit
+umount -R /mnt
+reboot</code></pre>
+          <p>For AMD, install <code>amd-ucode</code>. If networking in the installed system was the original problem, LTS may boot locally even before it is repaired.</p>
+          <details>
+            <summary>Recreate the LTS loader entry if it is missing</summary>
+            <div><pre><code>ROOT_UUID=$(blkid -s UUID -o value /dev/nvme0n1p2)
+cat &gt; /boot/loader/entries/arch-lts.conf &lt;&lt;EOF
+title   Arch Linux (LTS fallback)
+linux   /vmlinuz-linux-lts
+initrd  /intel-ucode.img
+initrd  /initramfs-linux-lts.img
+options root=UUID=${ROOT_UUID} rw
+EOF
+bootctl</code></pre></div>
+          </details>
+        </section>
+
+        <section id="rebuild">
+          <p class="section-label">07 · Terminal recovery</p>
+          <h2>Know when repair has become less reliable than rebuild</h2>
+          <p>Reinstall instead of continuing forensic repair when any of these are true:</p>
+          <ul>
+            <li>Filesystem or NVMe health is suspect.</li>
+            <li>Package ownership is broadly inconsistent.</li>
+            <li>Unknown manual changes make the system non-reproducible.</li>
+            <li>Recovery would take longer than the installation guide plus project re-cloning.</li>
+            <li>The node may have executed hostile code with host-level Docker access.</li>
+          </ul>
+          <h3>Rebuild order</h3>
+          <ol>
+            <li>Preserve committed project work and the rebuild manifest.</li>
+            <li>Record the current host SSH fingerprint so its replacement is expected.</li>
+            <li>Re-run the companion installation guide.</li>
+            <li>Apply the execution-node Ansible profile.</li>
+            <li>Re-enroll Tailscale and Codex through their supported login flows.</li>
+            <li>Restore repositories and only the selected caches worth keeping.</li>
+            <li>Run the full acceptance checklist before deleting the old disk or backup.</li>
+          </ol>
+        </section>
+
+        <section id="record">
+          <p class="section-label">Maintenance record</p>
+          <h2>Leave a compact audit trail</h2>
+          <p>Record each maintenance window in an issue or operator log:</p>
+          <pre><code>Date/time:
+Operator:
+Starting kernel:
+Starting package state:
+Arch/CachyOS notices reviewed:
+Packages updated:
+.pacnew/.pacsave handled:
+Reboot performed:
+Ending kernel:
+Smoke tests:
+Errors or rollback:
+Follow-up:</code></pre>
+        </section>
+
+        <section id="sources">
+          <p class="section-label">References</p>
+          <h2>Primary documentation</h2>
+          <ul class="source-list">
+            <li><a href="https://wiki.archlinux.org/title/System_maintenance">Arch system maintenance</a></li>
+            <li><a href="https://wiki.archlinux.org/title/Pacman">Arch pacman guide</a></li>
+            <li><a href="https://wiki.archlinux.org/title/Iwd">Arch iwd guide</a></li>
+            <li><a href="https://wiki.archlinux.org/title/Systemd-boot">Arch systemd-boot guide</a></li>
+            <li><a href="https://wiki.archlinux.org/title/Kernel">Arch kernel and recovery guide</a></li>
+            <li><a href="https://wiki.archlinux.org/title/Downgrading_packages">Arch package downgrade guide</a></li>
+            <li><a href="https://wiki.cachyos.org/features/optimized_repos/">CachyOS repository installation and removal</a></li>
+            <li><a href="https://wiki.cachyos.org/features/kernel/">CachyOS kernel variants</a></li>
+            <li><a href="https://uapi-group.org/specifications/specs/boot_loader_specification/">Boot Loader Specification</a></li>
+          </ul>
+        </section>
+      </main>
+    </div>
+
+    <footer>
+      <span>Artifact: ThinkCentre Tiny maintenance runbook</span>
+      <span>Companion: <a href="thinkcentre-arch-cachyos-install.html">installation guide</a></span>
+    </footer>
+  </div>
+</body>
+</html>

@@ -10,3 +10,7 @@
   import_playbook: dns.yml
 - name: Configure the K3s cluster
   import_playbook: k3s.yml
+- name: Configure Pi 1 service sentinels
+  import_playbook: pi1-sentinel.yml
+- name: Configure Pi 1 reachability probes
+  import_playbook: pi1-probe.yml

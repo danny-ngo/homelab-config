@@ -10,3 +10,29 @@
     owner: root
     group: root
     mode: "0755"
+
+- name: Create the infrastructure container and data roots
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0750"
+  loop:
+    - "{{ infra_host_container_root }}"
+    - "{{ infra_host_data_root }}"
+
+- name: Configure bounded Docker logs and live restore
+  ansible.builtin.template:
+    src: daemon.json.j2
+    dest: /etc/docker/daemon.json
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Restart infrastructure Docker
+
+- name: Enable and start Docker for infrastructure containers
+  ansible.builtin.systemd_service:
+    name: docker
+    enabled: true
+    state: started

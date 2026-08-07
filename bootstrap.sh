@@ -2,8 +2,12 @@
 set -euo pipefail
 
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# shellcheck source=bootstrap/lib/common.sh
-source "$root/bootstrap/lib/common.sh"
+# shellcheck source=bootstrap/lib/logging.sh
+source "$root/bootstrap/lib/logging.sh"
+# shellcheck source=bootstrap/lib/detect-platform.sh
+source "$root/bootstrap/lib/detect-platform.sh"
+# shellcheck source=bootstrap/lib/requirements.sh
+source "$root/bootstrap/lib/requirements.sh"
 
 profile=""
 platform=""
@@ -18,21 +22,22 @@ usage() {
   cat <<'EOF'
 Usage: ./bootstrap.sh [options] [-- ansible-playbook-arguments]
 
-Prepare this checkout for Ansible and apply a machine profile.
+Prepare a fresh machine or apply a machine profile from the macOS controller.
 
 Options:
-  --profile PROFILE    workstation, infra, execution-node, pihole, or k3s-worker
+  --profile PROFILE    workstation, infra, execution-node, pihole, k3s-worker,
+                       pi1-sentinel, or pi1-probe
   --limit TARGET       inventory host/group limit (profile-specific by default)
   --inventory PATH     inventory path (default: production inventory)
   --platform PLATFORM  override OS detection: macos, debian, or arch
   --check              run the selected playbook in Ansible check mode
-  --prepare-only       install local Ansible tooling without applying a profile
+  --prepare-only       prepare tooling without applying a profile
   --dry-run            print commands without running Ansible or changing the machine
   -h, --help           show this help
 
-macOS defaults to the workstation profile and Arch/CachyOS defaults to the
-execution-node profile. Debian requires --profile because it is used by the
-ThinkPad, K3s workers, and Pi-hole hosts.
+macOS is the Ansible controller and defaults to the workstation profile.
+Debian and Arch are managed nodes: run --prepare-only on each fresh Linux host,
+then run the desired profile from the macOS workstation.
 
 --dry-run previews the command only. Use --check (without --dry-run) to run
 Ansible against hosts in check mode; the two options are intentionally distinct.
@@ -124,16 +129,23 @@ if [[ -n "$profile" ]]; then
   bootstrap_log "Profile: $profile"
 fi
 
-# Platform modules prepare only the machine running this command. Profile
-# modules own Ansible targeting, so the operator can run bootstrap from any
-# supported machine without making the ThinkPad a mandatory control node.
+# Platform modules prepare only the machine running this command. The macOS
+# workstation prepares controller tooling; Linux modules prepare managed-node
+# prerequisites and never install or invoke Ansible.
 # shellcheck source=/dev/null
 source "$platform_script"
 
 if [[ "$prepare_only" == true ]]; then
-  bootstrap_log "Local Ansible tooling is ready; no profile was applied."
+  if [[ "$platform" == "macos" ]]; then
+    bootstrap_log "Workstation controller tooling is ready; no profile was applied."
+  else
+    bootstrap_log "Managed-node prerequisites are ready; apply its profile from the macOS workstation."
+  fi
   exit 0
 fi
+
+[[ "$platform" == "macos" ]] ||
+  bootstrap_die "Ansible profiles must be applied from the macOS workstation"
 
 if [[ "$BOOTSTRAP_DRY_RUN" != true && ! -f "$BOOTSTRAP_INVENTORY" ]]; then
   bootstrap_initialize_inventory

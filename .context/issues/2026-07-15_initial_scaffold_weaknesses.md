@@ -16,7 +16,7 @@
 
 1. **K3s agent token is passed in plaintext via Jinja2 template** (`roles/k3s_agent/templates/config.yaml.j2`). The `no_log: true` on the task prevents Ansible output leakage, but the token ends up on disk in `/etc/rancher/k3s/config.yaml` with mode `0600`. If the host is compromised, the token is readable. Consider using `--token` from `ansible.builtin.command` or a systemd drop-in instead of a persistent file.
 
-2. **Pi-hole web password hash is rendered into `/etc/pihole/pihole.toml`** with `mode: '0600'` and `no_log: true` — good — but the vault example only stores hashes for `pihole1`/`pihole2`. If a third host is added to `pihole_nodes`, the task will fail at runtime with a vault key lookup error. The `argument_specs` don't enforce this.
+2. **Pi-hole web password hash is rendered into `/etc/pihole/pihole.toml`** with `mode: '0600'` and `no_log: true` — good — but every host added to `pihole_nodes` also needs a matching key in `vault_pihole_web_password_hashes`. The role now fails with an explicit assertion before the template lookup.
 
 3. **`host_key_checking = True` in `ansible.cfg`** is correct for security, but the first run against a new host will block automation with an interactive prompt. There's no documented way to handle `StrictHostKeyChecking=accept-new` as a stepping stone.
 
@@ -62,7 +62,9 @@
 
 20. **CI doesn't run `make check`** (Ansible check mode). It only runs lint + syntax + unit tests. A playbook that passes syntax but breaks at runtime won't be caught.
 
-21. **No lockfile or hash verification for `requirements-dev.txt`** pip dependencies. `ansible-core`, `ansible-lint`, and `yamllint` are pinned by version but not by hash, so a compromised package could be substituted.
+21. **Resolved 2026-07-28:** `requirements-dev.txt` was replaced by
+    `pyproject.toml`, `.python-version`, and a committed `uv.lock`; bootstrap
+    and CI now synchronize the Python 3.14 environment with `uv sync --frozen`.
 
 ### Operational
 

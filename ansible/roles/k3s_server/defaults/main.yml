@@ -1,10 +1,10 @@
-k3s_version: v1.35.6+k3s1
+k3s_version: v1.34.9+k3s1
 k3s_data_dir: /var/lib/rancher/k3s
 k3s_binary_assets:
   x86_64: k3s
   aarch64: k3s-arm64
   armv7l: k3s-armhf
 k3s_binary_checksums:
-  x86_64: 2b52a2c1ca6eb502e2a0ffa1a4cf79eef94875926577c1e43347ed292cc92432
-  aarch64: 64c71644eb83d48f54da43c86ee8ba0ddff69db87e11d96a48fec7a965b1bc80
-  armv7l: 1400d9a5fdd42509f4078e12cf34a4b4f5137942954c97572b05c83d313e59c2
+  x86_64: 80eebb578e36a04ca460575fab419a3336b32c84205a0ae954ff16636181d9f7
+  aarch64: c782d6bb71eb2eb30f034aaddabb480294f9fdae5a7bca49ac5e3e0f66b96ea5
+  armv7l: 62f7ac7f6927aa75853cf46b61ba7c0cd1c2d8213f724dd30942872fdd9b413f

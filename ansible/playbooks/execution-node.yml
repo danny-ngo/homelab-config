@@ -1,4 +1,6 @@
 - name: Configure execution node
   hosts: execution_nodes
   gather_facts: true
-  roles: [common, execution_node, tailscale, dotfiles]
+  vars_files:
+    - ../packages/linux/packages.yml
+  roles: [tailscale, execution_node, dotfiles]

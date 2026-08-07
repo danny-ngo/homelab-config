@@ -1,4 +1,6 @@
 - name: Baseline Linux hosts
   hosts: linux_nodes
   gather_facts: true
+  vars_files:
+    - ../packages/linux/packages.yml
   roles: [common, storage, firewall]

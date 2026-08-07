@@ -7,15 +7,22 @@ Implement the empty repository through the supported K3s baseline:
 1. Establish reproducible Ansible tooling, safe example inventory, Vault integration, validation, and operator commands.
 2. Configure the MacBook, Debian ThinkPad, and CachyOS ThinkCentre.
 3. Move package ownership out of the dotfiles installer and into Ansible; use the dotfiles repository only for GNU Stow-managed configuration.
-4. Provision the Pi-hole pair sequentially, subject to current hardware/OS support gates.
+4. Provision the dedicated Pi 2 Pi-hole, then add a second supported resolver
+   later for redundancy.
 5. Install a single-server K3s cluster on the ThinkPad with two supported Pi 3 workers.
-6. Provide the isolated Pi 2 admission and 72-hour soak workflow without making it part of baseline success.
 
 Phases 5–6—databases, pipeline orchestration, backup products, and observability—remain out of scope. Do not create empty roles or placeholder playbooks for them.
 
 ## Fixed decisions and defaults
 
-- Use Python 3.12, `ansible-core==2.20.7`, `ansible-lint==26.6.0`, and `yamllint==1.38.0`.
+- Use uv-managed Python 3.14, `ansible-core==2.20.7`,
+  `ansible-lint==26.6.0`, and `yamllint==1.38.0`.
+- Install operational Ansible with `uv tool` and keep the repository `.venv`
+  for locked development and CI dependencies from `pyproject.toml` and
+  `uv.lock`.
+- Use the MacBook as the Ansible controller. Linux initial bootstrap installs
+  global uv, per-user uv-managed Python 3.14, and a per-user global Python pin,
+  then stops; Linux never installs controller Ansible.
 - Pin collections to `community.general==13.0.1` and `ansible.posix==2.2.0`.
 - Track safe inventory examples in Git. Keep `ansible/inventories/production/`, Vault passwords, generated artifacts, and fetched kubeconfigs ignored.
 - Use Ansible Vault for Tailscale enrollment keys and Pi-hole credentials. Supply the Vault password through `ANSIBLE_VAULT_PASSWORD_FILE`; never encode its path in the repository.
@@ -33,7 +40,11 @@ Phases 5–6—databases, pipeline orchestration, backup products, and observabi
 - Configure the ThinkCentre using the existing personal account and `~/Developer`; do not create a separate agent user, quotas, concurrency controls, or automatic cache deletion.
 - Install rootful Docker Engine for compatibility. Do not expose its API over TCP. Document and validate that Docker group membership grants effective root-level access.
 - Pin Codex CLI `0.144.4`, using the official x86_64 Linux release archive and checksum. Authentication is a one-time operator action using `codex login --device-auth`; Ansible never manages Codex credentials. Official Codex guidance supports device-code login for headless hosts.
-- Use Pi-hole Core `v6.4.3`, its current declarative `/etc/pihole/pihole.toml` interface, and sequential deployment. Pi-hole currently requires at least 512 MB RAM, 2 GB free space, a maintained OS, and supports ARMv6; fail the preflight if either Pi 1 does not meet those requirements. [Pi-hole prerequisites](https://docs.pi-hole.net/main/prerequisites/)
+- Use Pi-hole Core `v6.4.3`, its current declarative
+  `/etc/pihole/pihole.toml` interface, and sequential deployment. Pi-hole
+  currently requires at least 512 MB RAM and 2 GB free space; the confirmed
+  256 MB Pi 1 boards are excluded and the 1 GB Pi 2 is the dedicated host.
+  [Pi-hole prerequisites](https://docs.pi-hole.net/main/prerequisites/)
 - Pin K3s to `v1.35.6+k3s1`, one release line behind the newest current branch. Use SQLite and retain bundled Flannel, CoreDNS, Traefik, ServiceLB, metrics-server, and local-path storage. Do not add GitOps.
 - Keep kubeconfig fetching disabled by default.
 - Use `docker.io/library/busybox:1.37.0@sha256:9532d8c39891ca2ecde4d30d7710e01fb739c87a8b9299685c63704296b16028` for architecture validation.
@@ -80,7 +91,9 @@ Phases 5–6—databases, pipeline orchestration, backup products, and observabi
 ├── Makefile
 ├── README.md
 ├── bootstrap.sh
-└── requirements-dev.txt
+├── install.sh
+├── pyproject.toml
+└── uv.lock
 ```
 
 Each role must contain real defaults, `meta/argument_specs.yml`, task files, relevant templates, handlers, and `tasks/validate.yml`. Do not generate unused directory trees.
@@ -89,15 +102,22 @@ Each role must contain real defaults, `meta/argument_specs.yml`, task files, rel
 
 ### Operator commands
 
+`install.sh` will be the curl-delivered fresh-machine entry point. It will
+prepare Homebrew and a persistent checkout on macOS, or download temporary
+source and force prerequisite-only preparation on Linux.
+
 `bootstrap.sh` will:
 
-- Be the only public bootstrap entry point and detect macOS, Debian-family Linux, or Arch-family Linux unless explicitly overridden.
-- Run shared helpers from `bootstrap/lib/`, then the matching local platform module and selected profile module.
-- Require an explicit profile on Debian, where OS alone cannot distinguish the ThinkPad, K3s workers, and Pi-hole nodes; use safe defaults for macOS and CachyOS.
-- Create `.venv`, install the exact development requirements, and install pinned Ansible collections under `.ansible/collections`.
+- Be the local operation entry point and detect macOS, Debian-family Linux, or Arch-family Linux unless explicitly overridden.
+- Run shared helpers from `bootstrap/lib/`, then the matching local platform module.
+- On macOS, prepare controller tooling and dispatch the selected profile module; default to `workstation`.
+- On Debian and Arch, require `--prepare-only`, install managed-node
+  prerequisites, and never invoke a profile or install Ansible.
+- On the controller, create `.venv`, install the exact development requirements, and install pinned Ansible collections under `.ansible/collections`.
 - Copy `ansible/inventories/example` to ignored `ansible/inventories/production` only when production does not already exist, then stop so placeholder values cannot be applied.
 - Have each profile module invoke the relevant Ansible playbook with a profile-specific inventory limit.
-- Support a tooling-only mode for CI without connecting to a managed host.
+- Support controller preparation without connecting to a managed host; CI
+  restores its locked environment directly with uv.
 
 The `Makefile` will expose:
 
@@ -108,7 +128,7 @@ The `Makefile` will expose:
 - `validate LIMIT=...`
 - `idempotency PLAYBOOK=... LIMIT=...`
 - `phase1`, `phase2`, `dns`, `k3s`
-- `k3s-reboot-test` and `k3s-admit-experimental`, both requiring an explicit limit
+- `k3s-reboot-test`, requiring an explicit limit
 
 ### Inventory contract
 
@@ -122,10 +142,10 @@ Tracked example inventory defines:
 - `k3s_cluster`
 - `k3s_servers`
 - `k3s_workers_supported`
-- `k3s_workers_experimental`
 - `linux_nodes`
 
-`k3s_cluster` contains only the server and supported workers. The Pi 2 stays outside it.
+`k3s_cluster` contains only the server and supported workers. The Pi 2 stays
+outside every K3s worker group.
 
 Required production values include:
 
@@ -150,8 +170,7 @@ vault_tailscale_auth_keys:
   thinkcentre: ...
 
 vault_pihole_web_password_hashes:
-  pihole1: ...
-  pihole2: ...
+  pi2: ...
 ```
 
 No K3s token is stored in Vault or inventory. Avoid storing sudo passwords where SSH keys and passwordless narrowly scoped sudo can be used.
@@ -163,7 +182,9 @@ No K3s token is stored in Vault or inventory. Avoid storing sudo passwords where
 - Configure `ansible.cfg` with production inventory as the default, local role/collection paths, retry files disabled, strict host-key checking, and no persistent fact cache.
 - Implement `network.py` with Python’s `ipaddress` module for CIDR validation and overlap detection.
 - Add YAML lint, Ansible lint, syntax, inventory graph, secret-pattern, group-membership, and network-filter tests.
-- Add a GitHub Actions workflow using Python 3.12 that runs the same `make ci` path as local development.
+- Add a GitHub Actions workflow that installs uv, restores the locked
+  uv-managed Python 3.14 environment, and runs the same `make ci` path as local
+  development.
 - Add a second-run parser so `make idempotency` fails when the second recap contains unexplained changes.
 
 ### Base roles
@@ -184,7 +205,8 @@ No K3s token is stored in Vault or inventory. Avoid storing sudo passwords where
 - `infra-host.yml`: configure the ThinkPad as a persistent infrastructure host without assigning it permanent Ansible controller ownership.
 - `base.yml`: run common, storage, and firewall roles once per Linux host despite overlapping groups.
 - `validate.yml`: invoke every role’s read-only validation entry point.
-- `site.yml`: import stable Phase 1–4 playbooks; exclude experimental admission, reboot testing, destructive storage, router changes, and upgrades.
+- `site.yml`: import stable Phase 1–4 playbooks; exclude reboot testing,
+  destructive storage, router changes, and upgrades.
 
 ## Phase 2 — Primary computers
 
@@ -218,12 +240,15 @@ No K3s token is stored in Vault or inventory. Avoid storing sudo passwords where
 
 - Install the utilities needed to operate and recover its persistent infrastructure services.
 - Create a named persistent infrastructure root for service-specific roles to use in later phases.
-- Keep Ansible tooling in the invoking checkout's project virtual environment when the ThinkPad is used to run automation, without making that an inventory responsibility.
+- Keep the ThinkPad a managed infrastructure host rather than an Ansible
+  controller.
 - Preserve LAN access to every Raspberry Pi independently of Tailscale.
 
 ### ThinkCentre execution node
 
-- Install CachyOS packages for Git, shells, build tools, Python, `uv`, Go, Docker Engine/Compose/buildx, `bubblewrap`, Stow, and the selected CLI utilities.
+- Install CachyOS packages for shells, build tools, Go, Docker
+  Engine/Compose/buildx, `bubblewrap`, Stow, and the selected CLI utilities.
+  Initial bootstrap already owns the system Python and global `uv` packages.
 - Enable Docker and add only the declared personal account to the Docker group.
 - Install Codex CLI `0.144.4` from the official x86_64 Linux asset with checksum verification.
 - Configure Codex credential storage as `auto`; do not create or distribute `auth.json`.
@@ -305,30 +330,13 @@ Agent configuration includes:
 
 - Confirm server and agent services are enabled and active.
 - Query the API from the ThinkPad.
-- Require exactly the ThinkPad and two Pi 3 nodes, plus only a separately admitted Pi 2.
+- Require exactly the ThinkPad and two Pi 3 nodes.
 - Assert node Ready state, OS, architecture, labels, and exclusions.
 - Create one disposable BusyBox Job per baseline node, explicitly selecting that node.
 - Require successful completion and delete all validation resources in an `always` block.
 - Keep controlled reboot validation behind `k3s_reboot_test_enabled=true` and a dedicated Make target.
 - Fetch kubeconfig only when `k3s_fetch_kubeconfig=true`, with destination, endpoint, TLS SAN, and mode validated first.
 - Add `docs/runbooks/k3s-recovery.md` covering state, token, kubeconfig, node removal, rebuild order, and version upgrades.
-
-## Experimental Pi 2 workflow
-
-`k3s-admit-experimental.yml` must reject execution unless:
-
-- `--limit` names exactly one experimental host.
-- `k3s_experimental_worker_enabled=true`.
-- Every immediate architecture, OS, resource, cgroup, storage, network, and release-asset check passes.
-
-Admission applies `homelab.io/experimental=true` and taint `homelab.io/experimental=true:NoSchedule`.
-
-Split the 72-hour gate into two explicit stages:
-
-1. `admit`: install, join, reboot, run an ARMv7-compatible smoke workload, and create a temporary five-minute systemd sampling timer on the ThinkPad.
-2. `soak-check`: after at least 72 hours, require a complete sample set with no NotReady state, service crash, OOM, or storage error; test removal and rejoin; stop the timer; and emit an ignored JSON/YAML result artifact.
-
-The artifact records K3s version, OS, architecture, facts, timestamps, samples, smoke results, and final `admitted` or `excluded` status. A sanitized result can then be promoted to `docs/status/`. Failure never changes the normal playbook result.
 
 ## Test cases and acceptance scenarios
 
@@ -338,7 +346,7 @@ The artifact records K3s version, OS, architecture, facts, timestamps, samples, 
 - Every playbook passes syntax check against example inventory.
 - Inventory graph has the required overlaps and exclusions.
 - No host is both K3s server and worker.
-- The Pi 2 is absent from `k3s_cluster` and `site.yml`.
+- The Pi 2 is present only in `pihole_nodes` and absent from every K3s group.
 - Pi 1 and ThinkCentre hosts never appear in K3s groups.
 - CIDR helpers correctly detect contained, adjacent, IPv4/IPv6, and overlapping networks.
 - Role argument specifications reject missing, malformed, or contradictory inputs.
@@ -352,7 +360,8 @@ The artifact records K3s version, OS, architecture, facts, timestamps, samples, 
 - ThinkPad reaches all Linux nodes through LAN SSH.
 - Dotfiles rerun unchanged when `main` has not moved and records a new revision when it has.
 - ThinkCentre clones, validates, builds, and runs the smoke fixture; Codex version and login status are visible.
-- Either Pi-hole resolves independently and the pair survives the tagged one-node failover test.
+- The Pi 2 resolves directly; after a second resolver is added, the pair
+  survives the tagged one-node failover test.
 - ThinkPad and both Pi 3 workers return Ready after controlled reboot.
 - K3s workload validation succeeds on `amd64` and both `arm64` workers.
 - A second K3s run does not reinstall binaries, rotate tokens, rewrite configs, restart services, or touch the Pi 2.
@@ -367,10 +376,10 @@ The artifact records K3s version, OS, architecture, facts, timestamps, samples, 
 5. Configure Tailscale, then verify both LAN and tailnet access before SSH hardening.
 6. Apply workstation packages and Stow-managed dotfiles.
 7. Configure and smoke-test the ThinkCentre.
-8. Provision and validate Pi-hole 1, then Pi-hole 2; change router DNS only through the runbook.
+8. Provision and validate Pi-hole on the Pi 2; add and validate a second
+   supported resolver later; change router DNS only through the runbook.
 9. Install K3s server, then supported workers, then baseline validation.
 10. Run idempotency and controlled reboot acceptance.
-11. Evaluate the Pi 2 only through the separate admission workflow.
 
 ## Documentation updates
 

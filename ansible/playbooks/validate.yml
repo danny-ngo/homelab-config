@@ -42,10 +42,11 @@
   hosts: pihole_nodes
   gather_facts: true
   tasks:
-    - name: Run Pi-hole role validation
+    - name: Run DNS-node role validation
       ansible.builtin.include_role:
-        name: pihole
+        name: "{{ item }}"
         tasks_from: validate
+      loop: [pihole, tailscale, wol]
 
 - name: Validate K3s servers
   hosts: k3s_servers
@@ -66,3 +67,21 @@
         name: "{{ item }}"
         tasks_from: validate
       loop: [k3s_prereqs, k3s_agent]
+
+- name: Validate Pi 1 service sentinels
+  hosts: pi1_sentinel_nodes
+  gather_facts: true
+  tasks:
+    - name: Run Pi 1 sentinel validation
+      ansible.builtin.include_role:
+        name: pi1_sentinel
+        tasks_from: validate
+
+- name: Validate Pi 1 reachability probes
+  hosts: pi1_probe_nodes
+  gather_facts: true
+  tasks:
+    - name: Run Pi 1 probe validation
+      ansible.builtin.include_role:
+        name: pi1_probe
+        tasks_from: validate

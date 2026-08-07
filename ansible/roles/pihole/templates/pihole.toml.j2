@@ -1,5 +1,29 @@
 [dns]
-upstreams = [{% for resolver in pihole_upstream_resolvers %}"{{ resolver }}"{% if not loop.last %}, {% endif %}{% endfor %}]
+upstreams = {{ pihole_upstream_resolvers | to_json }}
 interface = "{{ pihole_interface }}"
+hosts = {{ pihole_local_records | to_json }}
+listeningMode = "LOCAL"
+queryLogging = {{ pihole_query_logging | bool | lower }}
+
+[dns.cache]
+size = {{ pihole_dns_cache_size }}
+
+[database]
+maxDBdays = {{ pihole_database_retention_days }}
+
+[ntp.ipv4]
+active = {{ pihole_ntp_enabled | bool | lower }}
+
+[ntp.ipv6]
+active = {{ pihole_ntp_enabled | bool | lower }}
+
+[ntp.sync]
+active = {{ pihole_ntp_enabled | bool | lower }}
+
 [webserver]
-password = "{{ vault_pihole_web_password_hashes[inventory_hostname] }}"
+threads = {{ pihole_webserver_threads }}
+
+[webserver.api]
+max_sessions = {{ pihole_webserver_max_sessions }}
+maxHistory = {{ pihole_webserver_history_seconds }}
+pwhash = "{{ vault_pihole_web_password_hashes[inventory_hostname] }}"

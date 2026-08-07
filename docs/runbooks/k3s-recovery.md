@@ -3,6 +3,37 @@
 The ThinkPad is the single K3s server. Its data directory and node token are
 critical state; workers are rebuildable. Restore the server before any worker.
 
+## Helm administration
+
+Helm works with K3s without special cluster configuration. K3s includes a Helm
+Controller for declarative `HelmChart` resources, but the upstream Helm CLI is
+a client and does not need to be installed on the ThinkPad merely because that
+host runs the K3s server.
+
+Keep the normal administration boundary consistent with the rest of this
+repository:
+
+- run the Helm CLI from the MacBook controller, or from explicit automation,
+  using a kubeconfig that can reach the K3s API;
+- keep charts, values, and release configuration in this repository;
+- treat a Helm CLI installation on the ThinkPad as optional break-glass
+  tooling, not as a routine deployment dependency; and
+- retain the current no-GitOps baseline unless continuous in-cluster
+  reconciliation is adopted as a separate architecture decision.
+
+The server's administrator kubeconfig is
+`/etc/rancher/k3s/k3s.yaml`. Any copy used from the MacBook must replace its
+`server` address with the reachable ThinkPad API address. It grants unrestricted
+cluster administration, must never be committed, and may need to be refreshed
+after K3s rotates the embedded client certificates. Prefer a purpose-scoped
+kubeconfig over copying the administrator credential once the required Helm
+release permissions are known.
+
+References:
+
+- [K3s Helm support and Helm Controller](https://docs.k3s.io/add-ons/helm)
+- [K3s cluster access and external kubeconfig handling](https://docs.k3s.io/cluster-access)
+
 ## Recovery inputs
 
 Keep these in the protected backup system, never in Git or ordinary logs:
@@ -76,3 +107,18 @@ workloads, not just systemd process state.
 
 Do not share kubeconfig, node-token contents, or command output containing
 credentials in tickets or chat.
+
+## Raspberry Pi 2 admission gate
+
+The current example baseline assigns the Pi 2 to bare-metal Pi-hole, so it does
+not yet have a K3s agent or appear in the worker inventory group. This is an
+implementation gate, not a hardware exclusion: its 1 GB RAM meets the K3s agent
+baseline, which excludes workload consumption.
+
+Before admitting it, add a reviewed Pi-hole Kubernetes workload with persistent
+configuration, explicit DNS port exposure, measured requests and limits, and
+node affinity for a dedicated DNS label. Taint the Pi 2 so unrelated workloads
+cannot land there, then extend recovery checks to prove that the Pi-hole pod
+returns to the Pi 2 and answers direct UDP and TCP DNS queries after a reboot.
+Do not add the worker first and leave the critical workload or scheduling policy
+implicit.

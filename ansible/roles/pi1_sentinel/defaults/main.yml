@@ -1,0 +1,10 @@
+pi1_sentinel_dns_server: ""
+pi1_sentinel_dns_query_name: example.com
+pi1_sentinel_http_url: ""
+pi1_sentinel_healthchecks_urls: {}
+pi1_sentinel_interval_seconds: 60
+pi1_sentinel_dns_timeout_seconds: 2
+pi1_sentinel_http_timeout_seconds: 10
+pi1_sentinel_boot_media_gb: 32
+pi1_sentinel_user: pi1-sentinel
+pi1_sentinel_config_dir: /etc/pi1-sentinel

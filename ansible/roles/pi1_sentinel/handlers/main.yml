@@ -1,0 +1,5 @@
+- name: Restart Pi 1 service sentinel
+  ansible.builtin.systemd_service:
+    name: pi1-service-sentinel.service
+    state: restarted
+    daemon_reload: true

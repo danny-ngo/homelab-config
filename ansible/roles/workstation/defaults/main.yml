@@ -1,6 +1,9 @@
-workstation_homebrew_formulae: [git, stow, fastfetch, starship, mise]
-workstation_homebrew_casks: [tailscale-app, ghostty]
 workstation_user: "{{ ansible_user }}"
+codex_version: 0.144.5
+opencode_version: 1.18.3
+workstation_developer_cli_packages:
+  - "@openai/codex@{{ codex_version }}"
+  - "opencode-ai@{{ opencode_version }}"
 mise_node_version: '24'
 mise_go_version: '1.24'
 mise_rust_version: stable

@@ -1,7 +1,7 @@
 # K3s Cluster Component Specification
 
 Status: planning baseline
-Last reviewed: 2026-07-15
+Last reviewed: 2026-07-28
 Parent plan: `.context/specs/homelab-bootstrap-spec.md`
 Delivery phase: Phase 4 — K3s cluster
 
@@ -15,21 +15,19 @@ The baseline cluster is:
 
 - one `amd64` K3s server on the Debian ThinkPad;
 - two `arm64` K3s agents on Raspberry Pi 3 B v1.2 nodes;
-- one optional `armhf` agent on the Raspberry Pi 2 B v1.1 only after explicit admission;
-- no Raspberry Pi 1 or ThinkCentre participation.
+- no Raspberry Pi 2, Raspberry Pi 1, or ThinkCentre participation.
 
 ## 2. Outcomes
 
 The automation must:
 
 - install a pinned K3s version on the intended nodes;
-- derive server, supported-worker, and experimental-worker behavior from inventory groups;
+- derive server and supported-worker behavior from inventory groups;
 - use the ThinkPad's stable LAN address as the cluster API endpoint;
 - discover and propagate the server-generated join token without exposing it;
-- handle `amd64`, `arm64`, and optional `armhf` hosts explicitly;
+- handle `amd64` and `arm64` hosts explicitly;
 - remain safe and idempotent on repeated runs;
 - validate services, membership, architecture labels, reboot persistence, and a real workload;
-- keep experimental-node failure outside baseline success;
 - preserve enough server state and documentation to recover the cluster.
 
 ## 3. Scope and Boundaries
@@ -40,7 +38,6 @@ The automation must:
 - Host preflight and K3s prerequisites.
 - A single K3s server on the ThinkPad.
 - Two supported Pi 3 agents.
-- A separate, opt-in Pi 2 admission workflow.
 - Server token discovery and secure agent join.
 - Kubeconfig handling for administration.
 - Node labels, taints, and architecture-aware validation.
@@ -67,9 +64,9 @@ The automation must:
 | `k3s_servers` | `thinkpad` | `amd64` | Required | Server |
 | `k3s_workers_supported` | `rpi3a` | `arm64` | Required | Agent |
 | `k3s_workers_supported` | `rpi3b` | `arm64` | Required | Agent |
-| `k3s_workers_experimental` | `rpi2` | `armhf` / ARMv7 | Opt-in only | Agent after admission |
+| Excluded | `pi2` | `armhf` / ARMv7 | Never a cluster node | Dedicated bare-metal Pi-hole |
 | Excluded | `thinkcentre` | `amd64` | Never a cluster node | Remote development only |
-| Excluded | `pihole1`, `pihole2` | `armv6` | Never cluster nodes | Bare-metal DNS only |
+| Excluded | two Pi 1 boards | `armv6` | Never cluster nodes | Reachability probe and Pi 2 service sentinel only |
 
 Hostnames are illustrative inventory identifiers. Role assignment must never depend on matching these strings.
 
@@ -91,15 +88,15 @@ Hostnames are illustrative inventory identifiers. Role assignment must never dep
 - Must have unique hostnames, enabled memory cgroups, stable power, and healthy storage.
 - Must not receive write-heavy workloads by default when running from SD cards.
 
-### Raspberry Pi 2 experimental worker
+### Raspberry Pi 2 exclusion
 
-Official K3s requirements currently list `armhf` as supported, making this node a candidate rather than a supported homelab baseline. Recheck the [K3s requirements](https://docs.k3s.io/installation/requirements) and the assets for the pinned [K3s release](https://github.com/k3s-io/k3s/releases) at admission time.
-
-The Pi 2 must not be targeted by `site.yml` or the normal `k3s.yml` run. A separate `k3s-admit-experimental.yml` workflow must require an explicit enable variable and must pass every gate in Section 12.
+The Pi 2 is permanently assigned to bare-metal Pi-hole. It must not appear in a
+K3s worker group, receive K3s prerequisites, or have a K3s agent installed.
 
 ### Raspberry Pi 1 exclusion
 
-Both Pi 1 nodes are permanently excluded from this cluster specification. The parent plan reserves them for bare-metal Pi-hole. Do not add an ARMv6 K3s path or a generic `arm*` acceptance rule.
+Both 256 MB Pi 1 nodes are permanently excluded from this cluster
+specification. Do not add an ARMv6 K3s path or a generic `arm*` acceptance rule.
 
 ### Architecture assertions
 
@@ -107,7 +104,7 @@ Before installing or changing K3s, automation must:
 
 - collect Ansible facts;
 - map the detected architecture to the expected inventory class;
-- assert `amd64` for the server, `arm64` for supported workers, and ARMv7/`armhf` for the experimental worker;
+- assert `amd64` for the server and `arm64` for supported workers;
 - fail clearly on a mismatch or unsupported architecture;
 - verify that the pinned K3s release artifact exists for the target architecture;
 - preserve standard Kubernetes `kubernetes.io/os` and `kubernetes.io/arch` labels;
@@ -115,7 +112,7 @@ Before installing or changing K3s, automation must:
 
 ## 6. Network and Access Model
 
-- The ThinkPad, Pi 3 nodes, and optional Pi 2 communicate over the LAN.
+- The ThinkPad and Pi 3 nodes communicate over the LAN.
 - The K3s API endpoint must resolve to or explicitly use the ThinkPad's stable LAN address.
 - Do not use the ThinkPad's Tailscale address as the agent join endpoint in v1 because the Raspberry Pi workers are intentionally outside Tailscale.
 - The MacBook may administer the API remotely through the ThinkPad's Tailscale path only if routing, certificate names, and access controls are intentionally configured; this is not required for initial cluster convergence.
@@ -138,11 +135,9 @@ ansible/
         k3s_cluster.yml
         k3s_servers.yml
         k3s_workers_supported.yml
-        k3s_workers_experimental.yml
       host_vars/
   playbooks/
     k3s.yml
-    k3s-admit-experimental.yml
   roles/
     k3s_prereqs/
       defaults/
@@ -172,10 +167,7 @@ Do not create empty role trees in advance. Each added role must include defaults
 
 - `k3s_servers`
 - `k3s_workers_supported`
-- `k3s_workers_experimental`
 - `k3s_cluster`, an optional parent containing servers and supported workers only
-
-The experimental group must remain outside the default `k3s_cluster` parent so a normal group limit cannot enroll the Pi 2 accidentally.
 
 ### Example shape
 
@@ -191,18 +183,12 @@ all:
           hosts:
             rpi3a: {}
             rpi3b: {}
-    k3s_workers_experimental:
-      hosts:
-        rpi2:
-          k3s_experimental_worker_enabled: false
 ```
 
 ### Behavior rules
 
 - Members of `k3s_servers` receive server configuration.
 - Members of `k3s_workers_supported` receive agent configuration during the normal K3s playbook.
-- Members of `k3s_workers_experimental` receive no K3s changes during normal playbooks.
-- Experimental enrollment requires the separate admission playbook, a host-specific enable value, and all admission assertions.
 - A host must never be both a server and a worker.
 - Common prerequisite tasks must not execute more than once because a host is reachable through overlapping parent groups.
 
@@ -253,19 +239,7 @@ For `k3s_workers_supported`:
 - verify the local service and server-side node registration;
 - avoid restarts unless configuration or binary content changed.
 
-### 9.4 Experimental agent admission
-
-For `k3s_workers_experimental`, the admission playbook must:
-
-- assert `k3s_experimental_worker_enabled: true` for the targeted host;
-- require a deliberate host limit so it cannot run against a broad fleet pattern;
-- run every preflight and release-asset check before installation;
-- label and preferably taint the node so ordinary workloads do not land on it;
-- validate reboot recovery and the 72-hour soak described in Section 12;
-- produce a recorded result of `admitted` or `excluded` with the K3s version, OS version, architecture, and test outcome;
-- allow clean removal from the cluster without affecting baseline nodes.
-
-### 9.5 Token and kubeconfig handling
+### 9.4 Token and kubeconfig handling
 
 Preferred token flow:
 
@@ -284,14 +258,14 @@ If kubeconfig is copied to the MacBook or another operator machine:
 - ensure the selected address is represented in the server certificate configuration;
 - document revocation and rotation expectations.
 
-### 9.6 Validation
+### 9.5 Validation
 
 The normal K3s playbook must verify:
 
 - `k3s` is enabled and active on the ThinkPad;
 - `k3s-agent` is enabled and active on both Pi 3 nodes;
 - the API responds from the ThinkPad;
-- exactly the expected baseline nodes appear unless a declared admitted experimental node is also present;
+- exactly the expected baseline nodes appear;
 - the baseline nodes reach `Ready` within a bounded timeout;
 - reported OS and architecture labels match inventory expectations;
 - no Pi 1 or ThinkCentre appears as a node;
@@ -301,7 +275,7 @@ The normal K3s playbook must verify:
 
 Validation must surface actionable output showing which node, service, architecture, or scheduling condition failed.
 
-### 9.7 Idempotency
+### 9.6 Idempotency
 
 A second run must:
 
@@ -311,7 +285,7 @@ A second run must:
 - not rewrite unchanged configuration;
 - not restart healthy services without a notified change;
 - not rejoin or duplicate existing nodes;
-- not touch the experimental worker during the normal playbook.
+- not touch the dedicated Pi-hole Pi 2.
 
 ## 10. Required Variables
 
@@ -326,9 +300,8 @@ At minimum, define and document:
 - `k3s_kubeconfig_mode`: least-privileged mode;
 - `k3s_cluster_cidr` and `k3s_service_cidr`: checked for network overlap;
 - `k3s_node_labels`: per-host or group-defined labels;
-- `k3s_node_taints`: especially for experimental or constrained nodes;
+- `k3s_node_taints`: for constrained supported nodes when needed;
 - `k3s_expected_arch`: assertion value per group/host;
-- `k3s_experimental_worker_enabled`: defaults to `false`;
 - `k3s_validation_image`: trusted, pinned, verified multi-architecture image;
 - `k3s_server_data_dir`: documented persistent state path;
 - `k3s_fetch_kubeconfig`: defaults to `false` until destination and permissions are configured.
@@ -344,30 +317,17 @@ Do not define a plaintext `k3s_token` in normal inventory examples.
 - Pin K3s and verify release checksums when downloading binaries directly.
 - Restrict K3s API access to intended LAN/tailnet administrators and agents.
 - Treat SSH and sudo access to the ThinkPad as cluster-administrator access.
-- Keep experimental nodes tainted and free of secrets or critical workloads until explicitly trusted.
 - Prefer trusted multi-architecture images, pinned tags, and digests where practical.
 - Do not use unofficial images solely to make a weak architecture work.
 - Monitor ThinkPad capacity so K3s, databases, and pipeline orchestration cannot silently starve one another.
 - Back up the K3s server token, configuration, and datastore through the parent plan's backup system.
 
-## 12. Raspberry Pi 2 Admission Gate
+## 12. Raspberry Pi 2 Exclusion Contract
 
-The Pi 2 may be marked `admitted` only when all of the following are true:
-
-1. Inventory identifies the exact Pi 2 revision and expected ARMv7 architecture.
-2. The selected OS is actively maintained and uses systemd.
-3. Memory cgroups, required kernel features, time sync, networking, and storage checks pass.
-4. CPU, usable RAM, and free disk meet the pinned K3s agent requirements with workload headroom.
-5. The pinned K3s release publishes and successfully verifies an `armhf` binary and required images.
-6. The node joins with the same K3s version as the server.
-7. The node reports the expected architecture and reaches `Ready` after reboot.
-8. A trusted 32-bit ARM-compatible smoke workload completes on the node.
-9. The node is labeled and tainted so only explicitly compatible workloads can use it.
-10. A 72-hour soak completes without repeated NotReady transitions, memory exhaustion, storage errors, or service crashes.
-11. Removal and rejoin are demonstrated without affecting the ThinkPad or Pi 3 workers.
-12. The result, versions, facts, and allowed workload class are recorded in documentation.
-
-Failure of any gate results in `excluded`, not a partially supported default worker. Exclusion must not fail the baseline cluster playbook or acceptance criteria.
+The Pi 2 is the dedicated Pi-hole node. Inventory, tests, and recovery
+documentation must keep it outside `k3s_cluster` and all worker groups. Any
+future reversal requires a new architecture decision and a replacement DNS
+host before cluster work begins.
 
 ## 13. Execution Model
 
@@ -380,18 +340,7 @@ The normal `ansible/playbooks/k3s.yml` flow should:
 3. Read the runtime join token securely.
 4. Converge the two supported Pi 3 agents.
 5. Validate membership, labels, services, and the disposable workload.
-6. Report the Pi 2 as not evaluated, admitted, or excluded without changing it.
-
-### Experimental admission
-
-The separate `ansible/playbooks/k3s-admit-experimental.yml` flow should:
-
-1. Require an explicit `--limit` targeting the experimental host.
-2. Assert the enable variable and admission inputs.
-3. Run preflight and install only if all immediate gates pass.
-4. Apply restrictive labels/taints.
-5. Start the reboot and soak validation process.
-6. Record the final result before the node is considered usable.
+6. Verify the Pi 2 remains absent from cluster membership.
 
 ### Configuration style
 
@@ -410,7 +359,7 @@ The Phase 4 baseline is complete when:
 2. Both Pi 3 nodes run the matching K3s agent version and join successfully.
 3. `kubectl get nodes` reports the ThinkPad and both Pi 3 nodes as `Ready` with correct OS/architecture labels.
 4. Neither Pi 1 nor the ThinkCentre appears in cluster membership.
-5. The Pi 2 is not changed by the normal playbook and has an explicit status of `not evaluated`, `admitted`, or `excluded`.
+5. The Pi 2 remains absent from every K3s worker group and cluster membership.
 6. A trusted pinned multi-architecture validation workload completes only on compatible nodes.
 7. Baseline nodes recover to `Ready` after controlled reboot.
 8. A second normal playbook run has no unexplained changes or restarts.
@@ -419,10 +368,6 @@ The Phase 4 baseline is complete when:
 11. Server state paths and backup inputs are registered with the parent backup plan.
 12. Usage and recovery documentation explain inventory, execution, validation, upgrades, and removal.
 
-### Experimental acceptance
-
-The Pi 2 is accepted only through all Section 12 gates. Its admission is additional capacity, never part of baseline success.
-
 ## 15. Deliverables
 
 Implementation agents should produce:
@@ -430,10 +375,9 @@ Implementation agents should produce:
 - production inventory groups and non-secret example variables;
 - pinned K3s collection/role dependencies, if any;
 - `k3s_prereqs`, `k3s_server`, and `k3s_agent` roles;
-- normal and experimental admission playbooks;
+- the normal K3s playbook;
 - runtime token propagation with secret-safe logging behavior;
 - server, agent, architecture, reboot, workload, and idempotency validation;
-- a Pi 2 admission result record;
 - README commands for normal provisioning and validation;
 - `docs/runbooks/k3s-recovery.md` covering server state, token, kubeconfig, node removal, and rebuild order;
 - tests or CI checks for YAML, Ansible syntax/lint, inventory shape, and role input assertions.
@@ -455,7 +399,7 @@ Design so these can be added later without implementing them in Phase 4:
 
 1. Read `.context/homelab-bootstrap-spec.md` before this component specification.
 2. Do not broaden cluster membership beyond the fixed fleet table.
-3. Do not make the Pi 2 part of the normal worker group or baseline acceptance.
+3. Do not add the dedicated Pi-hole Pi 2 to any worker group.
 4. Do not add the Pi 1 or ThinkCentre nodes to any K3s group.
 5. Keep the cluster endpoint on the LAN unless the parent architecture plan is deliberately revised.
 6. Preserve group-driven behavior; hostname checks are documentation smells and task-logic failures.

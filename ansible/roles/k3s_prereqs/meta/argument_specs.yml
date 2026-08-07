@@ -4,3 +4,5 @@ argument_specs:
       k3s_cluster_cidr: {type: str, required: true}
       k3s_service_cidr: {type: str, required: true}
       k3s_node_address: {type: str, required: true}
+      k3s_agent_minimum_memory_mb: {type: int}
+      k3s_server_minimum_memory_mb: {type: int}
