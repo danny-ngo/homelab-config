@@ -16,6 +16,14 @@ class DocumentationTests(unittest.TestCase):
 
         self.assertEqual(config["baseurl"], "/homelab-config")
         self.assertEqual(config["repository"], "danny-ngo/homelab-config")
+        self.assertEqual(
+            config["header_pages"],
+            [
+                "bootstrap-python-flow.md",
+                "runbooks/dns.md",
+                "decisions/open-decisions.md",
+            ],
+        )
         self.assertIn("jekyll-relative-links", config["plugins"])
         self.assertTrue((DOCS / "index.md").is_file())
 
