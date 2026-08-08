@@ -294,6 +294,10 @@ fdisk -l</code></pre>
           <p class="section-label">04 · Disk</p>
           <h2>Partition, format and mount</h2>
           <p class="section-intro">The layout favours transparent recovery over snapshot features. ext4 is sufficient because the node is rebuilt from code and keeps no unique service state.</p>
+          <div class="callout">
+            <strong>The missing swap partition is intentional.</strong>
+            The swap partition in the ArchWiki example layout is optional: swap may instead use a file or zram. This always-on, headless node does not hibernate, so the previous Debian installation's 12.3 GB swap partition is erased with the rest of the disk rather than preserved. Section 12 configures up to 4 GiB of compressed zram as an OOM safety valve. If the workload later needs disk-backed overflow, add a resizable swap file; if hibernation becomes a requirement, use disk-backed swap sized near RAM and configure resume explicitly.
+          </div>
           <div class="callout danger"><strong>Final destructive checkpoint.</strong> The commands below irreversibly target <code>/dev/nvme0n1</code>.</div>
           <ol class="steps">
             <li>
@@ -742,6 +746,9 @@ sudo smartctl -H /dev/nvme0n1</code></pre>
           <h2>Primary documentation</h2>
           <ul class="source-list">
             <li><a href="https://wiki.archlinux.org/title/Installation_guide">Arch installation guide</a></li>
+            <li><a href="https://wiki.archlinux.org/title/Partitioning">Arch partitioning guide</a></li>
+            <li><a href="https://wiki.archlinux.org/title/Swap">Arch swap guide</a></li>
+            <li><a href="https://wiki.archlinux.org/title/Zram">Arch zram guide</a></li>
             <li><a href="https://wiki.archlinux.org/title/General_recommendations">Arch general recommendations</a></li>
             <li><a href="https://wiki.archlinux.org/title/Iwd">Arch iwd guide</a></li>
             <li><a href="https://wiki.archlinux.org/title/Systemd-boot">Arch systemd-boot guide</a></li>
