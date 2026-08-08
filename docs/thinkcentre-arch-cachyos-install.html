@@ -163,7 +163,7 @@
 <body>
   <div class="page">
     <header class="masthead">
-      <p class="kicker">ThinkCentre Tiny · execution node · reviewed 16 July 2026</p>
+      <p class="kicker">ThinkCentre Tiny · execution node · reviewed 7 August 2026</p>
       <h1>Arch + CachyOS installation guide</h1>
       <p class="lede">A destructive, start-to-finish build for an always-on headless development node: minimal Arch Linux, full CachyOS optimized repositories, the default CachyOS kernel, an independent Arch LTS fallback, Tailscale access, bounded Docker, and the repository’s execution-node automation.</p>
       <div class="meta" aria-label="Guide properties">
@@ -241,7 +241,7 @@
             </li>
             <li>
               <h3>Create and verify an Arch installation USB</h3>
-              <p>Download the current ISO, signature and checksum from the official Arch download page. Verify the signature before writing the ISO. Keep this USB as the recovery medium after installation.</p>
+              <p>Download the current ISO and its PGP signature from the official Arch download page. Obtain the signature from <code>archlinux.org</code>, not only from the same mirror as the ISO, then verify it against a trusted Arch release key before writing the image. Keep this USB as the recovery medium after installation.</p>
             </li>
             <li>
               <h3>Reserve the network identity</h3>
@@ -260,8 +260,9 @@
           <ol class="steps">
             <li>
               <h3>Confirm UEFI mode</h3>
-              <pre><code>ls /sys/firmware/efi/efivars</code></pre>
-              <p>A populated directory is the expected result. Reboot and correct the firmware mode if it does not exist.</p>
+              <pre><code>cat /sys/firmware/efi/fw_platform_size
+ls /sys/firmware/efi/efivars</code></pre>
+              <p>The first command must print <code>64</code> for this x86-64 ThinkCentre and the variables directory must exist. A value of <code>32</code> means 32-bit UEFI; a missing file means the ISO booted in BIOS/CSM mode. Reboot and correct the firmware mode before continuing.</p>
             </li>
             <li>
               <h3>Connect the USB Wi-Fi adapter and confirm Internet access</h3>
@@ -333,7 +334,8 @@ findmnt /mnt/boot</code></pre>
               <h3>Install the bootstrap system</h3>
               <pre><code>pacstrap -K /mnt \
   base base-devel linux-lts linux-firmware intel-ucode \
-  git openssh sudo vim curl ca-certificates iwd</code></pre>
+  git openssh sudo vim curl ca-certificates iwd \
+  man-db man-pages texinfo</code></pre>
               <p>For an AMD ThinkCentre, replace <code>intel-ucode</code> with <code>amd-ucode</code>. The CachyOS package layer is added only after a known-good Arch LTS boot.</p>
             </li>
             <li>
@@ -522,8 +524,10 @@ sudo ./cachyos-repo.sh</code></pre>
             <li>
               <h3>Review repository priority</h3>
               <pre><code>grep -nE '^\[[^]]+\]|^Include' /etc/pacman.conf
-pacman-conf --repo-list</code></pre>
-              <p>The selected CachyOS architecture repositories and <code>[cachyos]</code> should appear above Arch <code>[core]</code> and <code>[extra]</code>.</p>
+pacman-conf --repo-list
+pacman -Si pacman | sed -n '1,10p'
+pacman -Qi pacman | grep -E '^(Name|Version|Installed From)'</code></pre>
+              <p>The selected CachyOS architecture repositories and <code>[cachyos]</code> should appear above Arch <code>[core]</code> and <code>[extra]</code>. Including <code>[cachyos]</code> also selects CachyOS’s pacman fork, which records package origin with <code>INSTALLED_FROM</code> and performs architecture checks. This is intentional for the full CachyOS package layer; record it in the rebuild manifest.</p>
             </li>
             <li>
               <h3>Update and reinstall native packages from the preferred repositories</h3>
@@ -535,7 +539,7 @@ pacman -Qqn | sudo pacman -S -</code></pre>
               <h3>Install the primary kernel</h3>
               <pre><code>sudo pacman -S linux-cachyos
 ls -lh /boot/vmlinuz-* /boot/initramfs-*</code></pre>
-              <p>Add <code>linux-cachyos-headers</code> only when a DKMS or kernel-module build actually requires them.</p>
+              <p>The default kernel is CachyOS’s recommended starting point and suits this node’s mix of interactive agent sessions, compilation and containers. <code>linux-cachyos-server</code> trades responsiveness for a 300 Hz tick rate, no preemption and stock EEVDF; switch only after repeatable benchmarks show it helps this workload. Add <code>linux-cachyos-headers</code> only when a DKMS or kernel-module build actually requires them.</p>
             </li>
             <li>
               <h3>Add the CachyOS boot entry and make it the default</h3>
@@ -554,6 +558,7 @@ sudo systemctl reboot</code></pre>
             </li>
           </ol>
           <div class="callout"><strong>Fallback stays independent.</strong> Do not replace <code>linux-lts</code> with <code>linux-cachyos-lts</code>. The purpose of this entry is recovery from both a CachyOS patch regression and a CachyOS repository problem.</div>
+          <div class="callout warning"><strong>Do not add desktop tuning by default.</strong> <code>cachyos-settings</code> primarily supplies desktop-oriented sysctl settings, udev rules and helper scripts. It is not required for the optimized repositories or kernel and is intentionally absent from this headless node. If it is later installed, review its files under <code>/usr/lib/sysctl.d</code> and <code>/usr/lib/udev/rules.d</code>; place managed overrides under <code>/etc</code> instead of editing package-owned files.</div>
         </section>
 
         <section id="execution">
@@ -683,6 +688,7 @@ sudo smartctl -a /dev/nvme0n1</code></pre>
             </li>
           </ol>
           <div class="callout warning"><strong>Docker group membership is root-equivalent.</strong> Rootful Docker and this access are accepted for the declared execution-node account. Treat that account and every agent running as it as trusted host administration.</div>
+          <div class="callout"><strong>Firewall changes need their own access test.</strong> CachyOS’s generic post-install guide demonstrates UFW, but this repository’s Arch convention is firewalld and the execution-node playbook does not currently apply the firewall role. Do not enable UFW alongside firewalld or paste generic rules into a remote Docker host. Define the required LAN, Tailscale, SSH, T3 and container policy in automation, keep the physical console open, then verify both access paths and published container ports before closing the session.</div>
         </section>
 
         <section id="validate">
@@ -730,12 +736,15 @@ sudo smartctl -H /dev/nvme0n1</code></pre>
           <h2>Primary documentation</h2>
           <ul class="source-list">
             <li><a href="https://wiki.archlinux.org/title/Installation_guide">Arch installation guide</a></li>
+            <li><a href="https://wiki.archlinux.org/title/General_recommendations">Arch general recommendations</a></li>
             <li><a href="https://wiki.archlinux.org/title/Iwd">Arch iwd guide</a></li>
             <li><a href="https://wiki.archlinux.org/title/Systemd-boot">Arch systemd-boot guide</a></li>
             <li><a href="https://wiki.archlinux.org/title/Systemd-networkd">Arch systemd-networkd guide</a></li>
             <li><a href="https://wiki.archlinux.org/title/Systemd-resolved">Arch systemd-resolved guide</a></li>
             <li><a href="https://wiki.cachyos.org/features/optimized_repos/">CachyOS optimized repositories</a></li>
             <li><a href="https://wiki.cachyos.org/features/kernel/">CachyOS kernel variants</a></li>
+            <li><a href="https://wiki.cachyos.org/features/cachyos_settings/">CachyOS settings and override model</a></li>
+            <li><a href="https://wiki.cachyos.org/configuration/post_install_setup/">CachyOS post-install recommendations</a></li>
             <li><a href="https://wiki.cachyos.org/policy/repository_policy/">CachyOS repository policy</a></li>
             <li><a href="https://man.archlinux.org/man/zram-generator.conf.5">zram-generator configuration</a></li>
           </ul>

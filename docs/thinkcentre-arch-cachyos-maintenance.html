@@ -165,7 +165,7 @@
 <body>
   <div class="page">
     <header class="masthead">
-      <p class="kicker">ThinkCentre Tiny · operator runbook · reviewed 16 July 2026</p>
+      <p class="kicker">ThinkCentre Tiny · operator runbook · reviewed 7 August 2026</p>
       <h1>Arch + CachyOS maintenance runbook</h1>
       <p class="lede">The normal rhythm and recovery procedures for a rebuildable remote execution node. Use this runbook to keep Arch and CachyOS current without turning routine updates into an availability gamble.</p>
       <div class="meta" aria-label="Runbook properties">
@@ -210,8 +210,8 @@
           <h2>Keep failure cheap and observable</h2>
           <p class="section-intro">The machine is an always-on remote development appliance, not a source-of-truth host. Its availability matters while work is running, but recovery should favour a clean boot or rebuild over heroic repair. Project source must be recoverable from GitHub; see the <a href="runbooks/thinkcentre-workspaces.html">workspace durability policy</a>.</p>
           <div class="grid-2">
-            <article class="card"><h3>Always true</h3><ul><li>Complete upgrades only: <code>pacman -Syu</code>.</li><li>CachyOS repositories remain above Arch repositories.</li><li>Primary and fallback kernels stay installed.</li><li>Configuration is committed before risky changes.</li><li>No automatic reboot after package updates.</li></ul></article>
-            <article class="card"><h3>Never normal</h3><ul><li>Running <code>pacman -Sy package</code>.</li><li>Deleting the fallback kernel to save space.</li><li>Ignoring pacman, initramfs or DKMS errors.</li><li>Running cleanup with <code>--volumes</code> casually.</li><li>Keeping unique credentials or project state only here.</li></ul></article>
+            <article class="card"><h3>Always true</h3><ul><li>Complete upgrades only: <code>pacman -Syu</code>.</li><li>CachyOS repositories remain above Arch repositories.</li><li>Primary and fallback kernels stay installed.</li><li>Configuration is committed before risky changes.</li><li>Reboots remain deliberate and observable.</li></ul></article>
+            <article class="card"><h3>Never normal</h3><ul><li>Running <code>pacman -Sy package</code>.</li><li>Enabling unattended or offline-update reboot timers.</li><li>Deleting the fallback kernel to save space.</li><li>Ignoring pacman, initramfs or DKMS errors.</li><li>Running cleanup with <code>--volumes</code> casually.</li><li>Keeping unique credentials or project state only here.</li></ul></article>
           </div>
           <div class="callout"><strong>Severity model.</strong> A broken primary kernel is a low-severity incident when the LTS entry and local console work. A damaged boot filesystem or lost configuration is higher severity, which is why both are checked and backed up explicitly.</div>
         </section>
@@ -225,7 +225,7 @@
               <tr><td>Before work</td><td>Confirm SSH/Tailscale, free space and no failed units if the node has been idle.</td><td>The host rebooted unexpectedly, storage changed, or the previous session ended abnormally.</td></tr>
               <tr><td>End of work session</td><td>Review changes, run relevant tests, commit intentional project source and push the active branch to GitHub.</td><td>The repository has no expected remote, the branch has no upstream, or unique work cannot be safely committed or backed up.</td></tr>
               <tr><td>Every 1–2 weeks</td><td>Read Arch news, inspect pending updates, run the controlled update workflow, reboot and smoke-test.</td><td>Core packages, kernel, bootloader, microcode or filesystem tools report errors.</td></tr>
-              <tr><td>Monthly</td><td>Review Docker storage, package cache, journal size, SMART, temperatures and configuration drift.</td><td>Disk exceeds 80%, SMART is not healthy, or sustained load thermally throttles.</td></tr>
+              <tr><td>Monthly</td><td>Review Docker storage, package cache, orphans, journal size, exposed sockets, firewall posture, SMART, temperatures and configuration drift.</td><td>Disk exceeds 80%, an unexpected service is listening, SMART is not healthy, or sustained load thermally throttles.</td></tr>
               <tr><td>Quarterly</td><td>Boot LTS deliberately, boot the Arch USB, confirm backups can recreate inventory, and run an Ansible check.</td><td>The fallback entry or recovery media does not work.</td></tr>
               <tr><td>Before absence</td><td>Leave the host on a known-good kernel; avoid major upgrades immediately before travel.</td><td>No trusted person can reach the physical console.</td></tr>
             </tbody>
@@ -246,16 +246,20 @@ systemctl --failed
 df -h / /boot
 findmnt /boot
 bootctl list
+pacman-conf --repo-list
+pacman -Si pacman | sed -n '1,10p'
+pacman -Qi pacman | grep -E '^(Name|Version|Installed From)'
 tailscale status
+ss -lntup
 docker ps --format 'table {{.Names}}\t{{.Status}}'
 sudo journalctl -b -p err --no-pager</code></pre>
-              <ul class="checklist"><li>No unexplained failed units.</li><li>At least 5 GiB free on root and 250 MiB free on the ESP.</li><li>Both CachyOS and LTS boot entries are present.</li><li>Important work is committed or backed up.</li></ul>
+              <ul class="checklist"><li>No unexplained failed units or listening services.</li><li>At least 5 GiB free on root and 250 MiB free on the ESP.</li><li>Both CachyOS and LTS boot entries are present.</li><li>CachyOS architecture repositories and <code>[cachyos]</code> precede Arch repositories; pacman’s origin is expected.</li><li>Important work is committed or backed up.</li></ul>
             </div>
           </div>
           <div class="run">
             <div class="run-head"><span class="run-num">2</span><h3>Review change sources</h3></div>
             <div class="run-body">
-              <p>Read <a href="https://archlinux.org/news/">Arch Linux news</a> and CachyOS announcements relevant to the kernel or repositories. Preview repository updates without performing a partial upgrade:</p>
+              <p>Read <a href="https://archlinux.org/news/">Arch Linux news</a> and the linked CachyOS kernel, repository and post-install pages for notices relevant to this package layer. Preview repository updates without performing a partial upgrade:</p>
               <pre><code>checkupdates || true
 pacman -Qu
 pacman-conf --repo-list</code></pre>
@@ -273,6 +277,7 @@ sudo mkinitcpio -P
 sudo bootctl update
 bootctl</code></pre>
               <p>The explicit initramfs rebuild is a verification step. It must complete cleanly for both installed kernels.</p>
+              <div class="callout warning"><strong>Keep updates operator-controlled.</strong> CachyOS documents <code>pacman-offline</code>, Cachy-Update and an optional automatic reboot timer. They are intentionally not used on this remote execution node: the runbook requires reading news and transaction output, confirming both initramfs images, and choosing the reboot window.</div>
             </div>
           </div>
           <div class="run">
@@ -288,6 +293,7 @@ bootctl</code></pre>
               <pre><code>uname -r
 systemctl --failed
 journalctl -b -p err --no-pager
+pacman -Qdtq
 networkctl status
 resolvectl status
 tailscale status
@@ -342,7 +348,10 @@ sudo journalctl -k \
   --no-pager</code></pre></article>
           </div>
           <h3>Safe cleanup order</h3>
-          <pre><code># Keep three package versions; remove older cached packages.
+          <pre><code># Review orphans; remove only packages whose purpose you understand.
+pacman -Qdtq
+
+# Keep three package versions; remove older cached packages.
 sudo paccache -r
 
 # Remove only stopped containers and images older than seven days.
@@ -361,6 +370,12 @@ sudo smartctl -t short /dev/nvme0n1
 # After the device-reported wait time:
 sudo smartctl -l selftest /dev/nvme0n1
 systemctl status fstrim.timer smartd.service --no-pager</code></pre>
+          <h3>Audit optional CachyOS settings</h3>
+          <pre><code>pacman -Q cachyos-settings 2&gt;/dev/null || true
+pacman -Ql cachyos-settings 2&gt;/dev/null | grep -E 'sysctl|udev' || true
+sysctl kernel.sched_rt_runtime_us
+cat /sys/block/nvme0n1/queue/scheduler</code></pre>
+          <p><code>cachyos-settings</code> is intentionally absent unless a measured need justifies its desktop-oriented tuning. If present, review changes after package upgrades. Override sysctls in a later-named file under <code>/etc/sysctl.d/</code> and udev rules under <code>/etc/udev/rules.d/</code>; never edit package files under <code>/usr/lib</code>. Put every accepted override in Ansible.</p>
         </section>
 
         <section id="backup">
@@ -507,14 +522,14 @@ curl -O https://mirror.cachyos.org/cachyos-repo.tar.xz
 tar -xf cachyos-repo.tar.xz
 cd cachyos-repo
 sudo ./cachyos-repo.sh --remove
-sudo pacman -Syu</code></pre>
+sudo pacman -S core/pacman</code></pre>
           <h3>Verify the result</h3>
           <pre><code>pacman-conf --repo-list
-pacman -Q pacman
+pacman -Si pacman | sed -n '1,10p'
 pacman -Qqn | sudo pacman -S -
 sudo pacman -Syu
 sudo mkinitcpio -P</code></pre>
-          <p>The reinstall pass selects stock Arch providers for every available repository package. Foreign/AUR packages remain separate and may need rebuilding.</p>
+          <p>The pacman reinstall must report Arch <code>core</code> as its repository. The full reinstall pass then selects stock Arch providers for every available repository package. Foreign/AUR packages remain separate and may need rebuilding. If a manual rollback leaves <code>%INSTALLED_DB%</code> warnings, follow the CachyOS optimized-repositories removal section rather than deleting package metadata ad hoc.</p>
           <div class="callout warning"><strong>Keep <code>linux-lts</code> throughout the rollback.</strong> Remove <code>linux-cachyos</code> only after the system boots normally from Arch repositories and the LTS entry has been retested.</div>
         </section>
 
@@ -605,6 +620,7 @@ Follow-up:</code></pre>
           <h2>Primary documentation</h2>
           <ul class="source-list">
             <li><a href="https://wiki.archlinux.org/title/System_maintenance">Arch system maintenance</a></li>
+            <li><a href="https://wiki.archlinux.org/title/General_recommendations">Arch general recommendations</a></li>
             <li><a href="https://wiki.archlinux.org/title/Pacman">Arch pacman guide</a></li>
             <li><a href="https://wiki.archlinux.org/title/Iwd">Arch iwd guide</a></li>
             <li><a href="https://wiki.archlinux.org/title/Systemd-boot">Arch systemd-boot guide</a></li>
@@ -612,6 +628,8 @@ Follow-up:</code></pre>
             <li><a href="https://wiki.archlinux.org/title/Downgrading_packages">Arch package downgrade guide</a></li>
             <li><a href="https://wiki.cachyos.org/features/optimized_repos/">CachyOS repository installation and removal</a></li>
             <li><a href="https://wiki.cachyos.org/features/kernel/">CachyOS kernel variants</a></li>
+            <li><a href="https://wiki.cachyos.org/features/cachyos_settings/">CachyOS settings and override model</a></li>
+            <li><a href="https://wiki.cachyos.org/configuration/post_install_setup/">CachyOS post-install recommendations</a></li>
             <li><a href="https://uapi-group.org/specifications/specs/boot_loader_specification/">Boot Loader Specification</a></li>
           </ul>
         </section>
