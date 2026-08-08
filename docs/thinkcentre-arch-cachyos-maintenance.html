@@ -548,18 +548,21 @@ ping -c 3 archlinux.org
 
 lsblk -f
 mount /dev/nvme0n1p2 /mnt
-mount /dev/nvme0n1p1 /mnt/boot
+mount -o fmask=0077,dmask=0077 /dev/nvme0n1p1 /mnt/boot
 arch-chroot /mnt
 
-findmnt / /boot
+findmnt /
+findmnt -no TARGET,FSTYPE,OPTIONS /boot
 pacman -Syu linux-lts linux-firmware iwd intel-ucode
 mkinitcpio -P
 bootctl --esp-path=/boot install
-bootctl
+bootctl --esp-path=/boot list
 exit
+bootctl --root=/mnt --esp-path=/boot --install-source=image --variables=yes install
+bootctl --root=/mnt --esp-path=/boot list
 umount -R /mnt
 reboot</code></pre>
-          <p>For AMD, install <code>amd-ucode</code>. If networking in the installed system was the original problem, LTS may boot locally even before it is repaired.</p>
+          <p>For AMD, install <code>amd-ucode</code>. The ESP mount must report <code>fmask=0077,dmask=0077</code> so its random seed is not readable by unprivileged users. The post-chroot <code>bootctl</code> call uses the installed system’s binary and explicitly repairs the UEFI firmware entry from the live environment. If networking in the installed system was the original problem, LTS may boot locally even before it is repaired.</p>
           <details>
             <summary>Recreate the LTS loader entry if it is missing</summary>
             <div><pre><code>ROOT_UUID=$(blkid -s UUID -o value /dev/nvme0n1p2)
@@ -570,7 +573,7 @@ initrd  /intel-ucode.img
 initrd  /initramfs-linux-lts.img
 options root=UUID=${ROOT_UUID} rw
 EOF
-bootctl</code></pre></div>
+bootctl --esp-path=/boot list</code></pre></div>
           </details>
         </section>
 

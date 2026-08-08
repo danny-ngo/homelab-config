@@ -312,9 +312,10 @@ mkfs.ext4 -L ARCHROOT /dev/nvme0n1p2</code></pre>
             <li>
               <h3>Mount root and the EFI System Partition</h3>
               <pre><code>mount /dev/nvme0n1p2 /mnt
-mount --mkdir /dev/nvme0n1p1 /mnt/boot
+mount --mkdir -o fmask=0077,dmask=0077 /dev/nvme0n1p1 /mnt/boot
 findmnt /mnt
-findmnt /mnt/boot</code></pre>
+findmnt -no TARGET,FSTYPE,OPTIONS /mnt/boot</code></pre>
+              <p>FAT32 does not store Unix permissions. The restrictive file and directory masks make the ESP root-only while Linux has it mounted and prevent <code>bootctl</code> from exposing its random seed to unprivileged users.</p>
             </li>
           </ol>
         </section>
@@ -342,13 +343,14 @@ findmnt /mnt/boot</code></pre>
               <h3>Generate mounts and preserve the live Wi-Fi profile</h3>
               <pre><code>genfstab -U /mnt &gt;&gt; /mnt/etc/fstab
 cat /mnt/etc/fstab
+grep -E '[[:space:]]/boot[[:space:]]' /mnt/etc/fstab
 
 install -d -m 0700 /mnt/var/lib/iwd
 cp -a /var/lib/iwd/. /mnt/var/lib/iwd/
 find /mnt/var/lib/iwd -type f -exec chmod 600 {} +
 
 arch-chroot /mnt</code></pre>
-              <p>Do not continue if root and <code>/boot</code> are absent or mapped to the wrong UUIDs. The copied iwd profile lets the installed system reconnect to the same Wi-Fi network on first boot; it contains authentication material, so keep it root-only and never commit it to Git. If you deliberately installed over Ethernet, the empty copy is harmless.</p>
+              <p>Do not continue if root and <code>/boot</code> are absent or mapped to the wrong UUIDs. The <code>/boot</code> line must retain <code>fmask=0077,dmask=0077</code>; these mount options, rather than <code>chmod</code>, provide the effective permissions on FAT32. The copied iwd profile lets the installed system reconnect to the same Wi-Fi network on first boot; it contains authentication material, so keep it root-only and never commit it to Git. If you deliberately installed over Ethernet, the empty copy is harmless.</p>
             </li>
           </ol>
         </section>
@@ -445,8 +447,10 @@ systemctl enable sshd.service</code></pre>
           <ol class="steps">
             <li>
               <h3>Install the boot manager</h3>
-              <pre><code>bootctl --esp-path=/boot install
+              <pre><code>findmnt -no TARGET,FSTYPE,OPTIONS /boot
+bootctl --esp-path=/boot install
 install -d /boot/loader/entries</code></pre>
+              <p>Confirm that the active options contain <code>fmask=0077,dmask=0077</code> before running <code>bootctl</code>. Current releases may copy the boot-loader files but skip EFI-variable changes while inside <code>arch-chroot</code>; the final live-ISO step below performs firmware registration explicitly.</p>
             </li>
             <li>
               <h3>Create the loader configuration</h3>
@@ -468,16 +472,18 @@ initrd  /initramfs-linux-lts.img
 options root=UUID=${ROOT_UUID} rw
 EOF
 
-bootctl</code></pre>
+bootctl --esp-path=/boot list</code></pre>
               <p>Use <code>/amd-ucode.img</code> on AMD. Correct any parse or missing-file errors before leaving the chroot.</p>
             </li>
             <li>
               <h3>Finish the live-ISO phase</h3>
               <pre><code>exit
 ln -sf ../run/systemd/resolve/stub-resolv.conf /mnt/etc/resolv.conf
+bootctl --root=/mnt --esp-path=/boot --install-source=image --variables=yes install
+bootctl --root=/mnt --esp-path=/boot list
 umount -R /mnt
 reboot</code></pre>
-              <p>Remove the USB when firmware restarts. The machine should show a five-second menu and boot the LTS kernel.</p>
+              <p>The live ISO must have been booted in UEFI mode. Confirm that the final <code>bootctl</code> install reports a <code>Linux Boot Manager</code> firmware entry and that the list resolves <code>arch-lts.conf</code> as the default before unmounting. Remove the USB when firmware restarts; the machine should show a five-second menu and boot the LTS kernel.</p>
             </li>
           </ol>
         </section>
