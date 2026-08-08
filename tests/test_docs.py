@@ -84,6 +84,19 @@ class DocumentationTests(unittest.TestCase):
         for endpoint in healthchecks_paths:
             self.assertRegex(endpoint, r"^[A-Z_]+UUID$")
 
+    def test_thinkcentre_esp_mounts_use_root_only_masks(self):
+        secure_esp_mount = re.compile(
+            r"mount[^\n]*-o fmask=0077,dmask=0077 "
+            r"/dev/nvme0n1p1 /mnt/boot"
+        )
+
+        for name in (
+            "thinkcentre-arch-cachyos-install.html",
+            "thinkcentre-arch-cachyos-maintenance.html",
+        ):
+            with self.subTest(name=name):
+                self.assertRegex((DOCS / name).read_text(), secure_esp_mount)
+
 
 if __name__ == "__main__":
     unittest.main()
