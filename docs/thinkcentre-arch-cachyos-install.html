@@ -578,19 +578,13 @@ sudo systemctl reboot</code></pre>
           <ol class="steps">
             <li>
               <h3>Install the bootstrap prerequisites</h3>
-              <p>Only Git and OpenSSH are required before cloning. The managed-node bootstrap installs the global <code>uv</code> package, a per-user uv-managed Python 3.14, and the user's global 3.14 pin. It does not install Ansible.</p>
-              <pre><code>sudo pacman -S --needed git openssh</code></pre>
+              <p>The remote installer needs Bash, curl, tar, and mktemp; the base installation above already provides them. The managed-node bootstrap installs Arch's <code>uv</code>, Git, OpenSSH, and Python packages, then installs a per-user uv-managed Python 3.14 and the user's global 3.14 pin. It does not install Ansible.</p>
+              <pre><code>command -v bash curl tar mktemp</code></pre>
             </li>
             <li>
-              <h3>Clone this configuration repository</h3>
-              <pre><code>mkdir -p ~/src
-git clone YOUR_HOMELAB_CONFIG_REPOSITORY ~/src/homelab-config
-cd ~/src/homelab-config</code></pre>
-            </li>
-            <li>
-              <h3>Prepare the Arch managed node</h3>
-              <p>Run the prerequisite-only path on the ThinkCentre. It stops after uv, Python 3.14, and the global pin are ready. Production inventory and Vault remain on the MacBook controller.</p>
-              <pre><code>./bootstrap.sh --prepare-only
+              <h3>Prepare the Arch managed node with the remote installer</h3>
+              <p>Run the standalone installer as <code>homelab</code>, not root. It downloads a temporary source archive, invokes the prerequisite-only bootstrap, and removes the archive afterward; it does not retain a repository checkout or apply the Ansible baseline. Production inventory, Vault, and the persistent configuration checkout remain on the MacBook controller.</p>
+              <pre><code>curl -fsSL https://raw.githubusercontent.com/danny-ngo/homelab-config/main/install.sh | bash
 uv python pin --global</code></pre>
             </li>
             <li>
