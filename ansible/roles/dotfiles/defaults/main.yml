@@ -1,3 +1,7 @@
 dotfiles_target_user: "{{ ansible_user }}"
+dotfiles_target_home: "{{ ('/Users/' if ansible_os_family == 'Darwin' else '/home/') ~ dotfiles_target_user }}"
 dotfiles_repo: https://github.com/danny-ngo/dotfiles
 dotfiles_branch: main
+dotfiles_checkout: "{{ dotfiles_target_home }}/Developer/dotfiles"
+dotfiles_profiles: []
+dotfiles_state_directory: "{{ dotfiles_target_home }}/.local/state/homelab"

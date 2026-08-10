@@ -1,8 +1,6 @@
 storage_mounts: []
 dotfiles_repo: https://github.com/danny-ngo/dotfiles
 dotfiles_branch: main
-dotfiles_packages_linux: [fastfetch, git, starship, zsh]
-dotfiles_packages_macos: [fastfetch, ghostty, git, starship, zsh]
 k3s_version: v1.34.9+k3s1
 k3s_fetch_kubeconfig: false
 pihole_installer_version: v6.4.3

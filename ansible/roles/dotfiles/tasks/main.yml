@@ -1,29 +1,110 @@
+- name: Verify the dotfiles deployment inputs
+  ansible.builtin.import_tasks: validate.yml
+
 - name: Install Stow on Linux
-  ansible.builtin.package: {name: stow, state: present}
+  ansible.builtin.package:
+    name: stow
+    state: present
   when: ansible_os_family != 'Darwin'
-- name: Clone or update dotfiles on Linux
+
+- name: Create the dotfiles checkout parent directory
+  ansible.builtin.file:
+    path: "{{ dotfiles_checkout | dirname }}"
+    state: directory
+    owner: "{{ dotfiles_target_user }}"
+    mode: '0755'
+
+- name: Clone or update the dotfiles repository
   ansible.builtin.git:
     repo: "{{ dotfiles_repo }}"
-    dest: "/home/{{ dotfiles_target_user }}/Developer/dotfiles"
+    dest: "{{ dotfiles_checkout }}"
     version: "{{ dotfiles_branch }}"
     update: true
   become_user: "{{ dotfiles_target_user }}"
   become: true
-  when: ansible_os_family != 'Darwin'
+
+- name: Inspect the dotfiles checkout
+  ansible.builtin.stat:
+    path: "{{ dotfiles_checkout }}"
+  register: dotfiles_checkout_status
+
+- name: Verify the dotfiles checkout exists
+  ansible.builtin.assert:
+    that:
+      - dotfiles_checkout_status.stat.isdir | default(false)
+    fail_msg: "The dotfiles checkout is not available at {{ dotfiles_checkout }}."
+    quiet: true
+  when: not ansible_check_mode
+
+- name: Inspect the selected dotfiles profiles
+  ansible.builtin.stat:
+    path: "{{ dotfiles_checkout }}/{{ item }}"
+  loop: "{{ dotfiles_profiles }}"
+  loop_control:
+    label: "{{ item }}"
+  register: dotfiles_profile_status
+  when: dotfiles_checkout_status.stat.isdir | default(false)
+
+- name: Verify the selected dotfiles profiles exist
+  ansible.builtin.assert:
+    that:
+      - item.stat.isdir | default(false)
+    fail_msg: >-
+      The selected dotfiles profile {{ item.item }} is not a directory in
+      {{ dotfiles_checkout }}.
+    quiet: true
+  loop: "{{ dotfiles_profile_status.results | default([]) }}"
+  loop_control:
+    label: "{{ item.item }}"
+  when: not (item.skipped | default(false))
+
+- name: Apply the selected dotfiles profiles with Stow
+  ansible.builtin.command:
+    argv: >-
+      {{
+        ['stow', '--verbose=1', '--restow', '--dir', dotfiles_checkout,
+         '--target', dotfiles_target_home]
+        + dotfiles_profiles
+      }}
+  register: dotfiles_stow_result
+  changed_when: >-
+    dotfiles_stow_result.stderr_lines | length
+    >
+    2 * (
+      dotfiles_stow_result.stderr_lines
+      | select('search', '\(reverts previous action\)$')
+      | list
+      | length
+    )
+  become_user: "{{ dotfiles_target_user }}"
+  become: true
+  environment:
+    HOME: "{{ dotfiles_target_home }}"
+  when: dotfiles_checkout_status.stat.isdir | default(false)
+
 - name: Resolve the deployed dotfiles revision
   ansible.builtin.command:
     argv: [git, rev-parse, HEAD]
-    chdir: "/home/{{ dotfiles_target_user }}/Developer/dotfiles"
+    chdir: "{{ dotfiles_checkout }}"
   register: dotfiles_revision
   changed_when: false
   become_user: "{{ dotfiles_target_user }}"
   become: true
-  when: ansible_os_family != 'Darwin'
+  when: not ansible_check_mode
+
+- name: Create the dotfiles deployment state directory
+  ansible.builtin.file:
+    path: "{{ dotfiles_state_directory }}"
+    state: directory
+    owner: "{{ dotfiles_target_user }}"
+    mode: '0755'
+
 - name: Record the deployed dotfiles revision
   ansible.builtin.copy:
     content: "{{ dotfiles_revision.stdout }}\n"
-    dest: "/home/{{ dotfiles_target_user }}/.local/state/homelab/dotfiles-revision"
+    dest: "{{ dotfiles_state_directory }}/dotfiles-revision"
+    owner: "{{ dotfiles_target_user }}"
     mode: '0644'
   become_user: "{{ dotfiles_target_user }}"
   become: true
-  when: ansible_os_family != 'Darwin'
+  when: not ansible_check_mode

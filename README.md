@@ -158,6 +158,12 @@ only the packages needed before Ansible can run. Tailscale and firewall
 packages are installed by the roles that configure them; Stow belongs to the
 dotfiles flow (the Linux dotfiles role or the macOS Brewfile).
 
+The dotfiles role clones the configuration-only repository into the target
+user's persistent `~/Developer/dotfiles` checkout and runs `stow --restow` for
+the host group's `dotfiles_profiles`. Stow conflicts fail without modifying the
+conflicting files; the role never uses `stow --adopt`. The successfully applied
+Git revision is recorded under `~/.local/state/homelab/`.
+
 Both Raspberry Pi 1 A+ boards are confirmed to have 256 MB RAM and remain
 excluded from Pi-hole, K3s, and the standard managed-node baseline. They have
 purpose-specific ARMv6 roles instead: the 8 GB `pi1probe` publishes host and
