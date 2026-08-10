@@ -1,2 +1,10 @@
 argument_specs:
-  main: {options: {dotfiles_repo: {type: str}, dotfiles_branch: {type: str}, dotfiles_target_user: {type: str}}}
+  main:
+    options:
+      dotfiles_branch: {type: str}
+      dotfiles_checkout: {type: path}
+      dotfiles_profiles: {type: list, elements: str}
+      dotfiles_repo: {type: str}
+      dotfiles_state_directory: {type: path}
+      dotfiles_target_home: {type: path}
+      dotfiles_target_user: {type: str}

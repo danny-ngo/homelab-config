@@ -1,0 +1,2 @@
+login_shell: /bin/bash
+dotfiles_profiles: [git, starship]

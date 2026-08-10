@@ -4,4 +4,20 @@
       - dotfiles_repo | length > 0
       - dotfiles_branch | length > 0
       - dotfiles_target_user | length > 0
+      - dotfiles_target_home | length > 0
+      - dotfiles_checkout | length > 0
+      - dotfiles_profiles | length > 0
+      - dotfiles_profiles | unique | length == dotfiles_profiles | length
     quiet: true
+
+- name: Verify the configured dotfiles profile names are safe
+  ansible.builtin.assert:
+    that:
+      - item | length > 0
+      - item not in ['.', '..']
+      - "'/' not in item"
+    fail_msg: "Invalid dotfiles profile name: {{ item }}"
+    quiet: true
+  loop: "{{ dotfiles_profiles }}"
+  loop_control:
+    label: "{{ item }}"

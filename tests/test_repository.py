@@ -266,6 +266,49 @@ class RepositoryContractTests(unittest.TestCase):
         self.assertIn("name: tailscale", tailscale_tasks)
         self.assertIn("name: tailscale-app", tailscale_tasks)
 
+    def test_dotfiles_role_applies_host_profiles_with_stow(self):
+        role_root = ROOT / "ansible" / "roles" / "dotfiles"
+        defaults = yaml.safe_load((role_root / "defaults" / "main.yml").read_text())
+        tasks = yaml.safe_load((role_root / "tasks" / "main.yml").read_text())
+
+        stow_task = next(
+            task
+            for task in tasks
+            if task["name"] == "Apply the selected dotfiles profiles with Stow"
+        )
+        stow_argv = stow_task["ansible.builtin.command"]["argv"]
+        revision_task_index = next(
+            index
+            for index, task in enumerate(tasks)
+            if task["name"] == "Record the deployed dotfiles revision"
+        )
+        stow_task_index = tasks.index(stow_task)
+
+        self.assertEqual(defaults["dotfiles_profiles"], [])
+        self.assertIn("ansible_os_family == 'Darwin'", defaults["dotfiles_target_home"])
+        self.assertIn("stow", stow_argv)
+        self.assertIn("--restow", stow_argv)
+        self.assertIn("dotfiles_checkout", stow_argv)
+        self.assertIn("dotfiles_target_home", stow_argv)
+        self.assertIn("dotfiles_profiles", stow_argv)
+        self.assertNotIn("--adopt", stow_argv)
+        self.assertLess(stow_task_index, revision_task_index)
+
+        group_vars_root = (
+            ROOT / "ansible" / "inventories" / "example" / "group_vars"
+        )
+        expected_profiles = {
+            "workstations": ["git", "starship", "zsh"],
+            "infra_hosts": ["git", "starship"],
+            "execution_nodes": ["git", "starship", "zsh"],
+        }
+        for group, profiles in expected_profiles.items():
+            with self.subTest(group=group):
+                group_vars = yaml.safe_load(
+                    (group_vars_root / group / "main.yml").read_text()
+                )
+                self.assertEqual(group_vars["dotfiles_profiles"], profiles)
+
     def test_baseline_roles_are_applied_once_through_site_profiles(self):
         for playbook in ("infra-host.yml", "execution-node.yml", "dns.yml"):
             text = (ROOT / "ansible" / "playbooks" / playbook).read_text()
