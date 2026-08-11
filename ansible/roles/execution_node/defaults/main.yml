@@ -1,6 +1,6 @@
 codex_version: 0.144.5
 opencode_version: 1.18.3
-t3_code_version: 0.0.34-nightly.20260811.1067
+t3_code_version: 0.0.34-nightly.20260811.1068
 execution_node_user: "{{ ansible_user }}"
 execution_node_packages: []
 execution_node_developer_cli_packages:

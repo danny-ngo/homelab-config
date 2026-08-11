@@ -561,6 +561,39 @@ class RepositoryContractTests(unittest.TestCase):
         self.assertIn("update", service_argv)
         self.assertEqual(service_update["become_user"], "{{ execution_node_user }}")
 
+        serve_task = next(
+            task
+            for task in tasks
+            if task["name"] == "Publish T3 Code through private Tailscale Serve"
+        )
+        serve_argv = serve_task["ansible.builtin.command"]["argv"]
+        self.assertIn("--bg", serve_argv)
+        self.assertIn("--yes", serve_argv)
+        self.assertIn("--https={{ t3_code_tailscale_serve_port }}", serve_argv)
+        self.assertIn("http://127.0.0.1:{{ t3_code_port }}", serve_argv)
+
+        validation = yaml.safe_load(
+            (
+                ROOT
+                / "ansible"
+                / "roles"
+                / "execution_node"
+                / "tasks"
+                / "validate.yml"
+            ).read_text()
+        )
+        serve_validation = next(
+            task
+            for task in validation
+            if task["name"]
+            == "Verify T3 Code is published through private Tailscale Serve"
+        )
+        serve_assertions = serve_validation["ansible.builtin.assert"]["that"]
+        self.assertTrue(
+            any("t3_code_tailscale_serve_port" in item for item in serve_assertions)
+        )
+        self.assertTrue(any("127.0.0.1" in item for item in serve_assertions))
+
         task_names = {task["name"] for task in tasks}
         self.assertIn("Stop and disable the legacy T3 Code system service", task_names)
         self.assertIn("Enable persistent user services for the execution-node user", task_names)

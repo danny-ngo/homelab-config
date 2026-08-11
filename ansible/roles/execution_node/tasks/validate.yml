@@ -101,3 +101,26 @@
       T3 Code is running {{ t3_code_environment.json.serverVersion }} instead
       of the configured {{ t3_code_version }}.
     quiet: true
+- name: Read the T3 Code Tailscale Serve configuration
+  ansible.builtin.command:
+    argv: [tailscale, serve, status, --json]
+  register: t3_code_validation_tailscale_serve_status
+  changed_when: false
+- name: Verify T3 Code is published through private Tailscale Serve
+  ansible.builtin.assert:
+    that:
+      - >-
+        (
+          (t3_code_validation_tailscale_serve_status.stdout | from_json)
+          .get('TCP', {})
+          .get(t3_code_tailscale_serve_port | string, {})
+          .get('HTTPS', false)
+        ) | bool
+      - >-
+        'http://127.0.0.1:' ~ (t3_code_port | string)
+        in t3_code_validation_tailscale_serve_status.stdout
+    fail_msg: >-
+      Tailscale Serve does not proxy private HTTPS port
+      {{ t3_code_tailscale_serve_port }} to T3 Code at
+      http://127.0.0.1:{{ t3_code_port }}.
+    quiet: true
