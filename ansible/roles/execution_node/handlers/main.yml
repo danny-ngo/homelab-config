@@ -3,10 +3,3 @@
     name: docker
     state: restarted
   when: not ansible_check_mode or not execution_node_package_install.changed
-
-- name: Restart T3 Code
-  ansible.builtin.systemd_service:
-    name: t3-code
-    state: restarted
-    daemon_reload: true
-  when: not ansible_check_mode

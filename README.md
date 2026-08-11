@@ -134,8 +134,11 @@ See the [detailed bootstrap flow](docs/bootstrap-python-flow.md) and
 Node 24, Go, and Rust are managed exclusively by Ansible through each user’s
 global `mise` configuration (`~/.config/mise/config.toml`). The execution node
 also installs Herdr through that configuration. Workstation and execution-node
-profiles install Codex CLI and OpenCode; the execution-node profile runs T3
-Code headlessly behind Tailscale Serve.
+profiles install Codex CLI and OpenCode; the execution-node profile installs
+an exact T3 Code version through its managed Linux background service. An
+operator pairs the loopback-only service through private Tailscale Serve HTTPS.
+Keep the desktop client and server version identical; see the
+[T3 Code remote-service runbook](docs/runbooks/t3-code.md).
 
 Deployment form is selected per service; there is no VM layer without a
 specific isolation requirement. T3 Code runs bare metal on the always-on

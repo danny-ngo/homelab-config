@@ -1,6 +1,6 @@
 codex_version: 0.144.5
 opencode_version: 1.18.3
-t3_code_version: 0.0.28
+t3_code_version: 0.0.34-nightly.20260811.1067
 execution_node_user: "{{ ansible_user }}"
 execution_node_packages: []
 execution_node_developer_cli_packages:
@@ -13,6 +13,9 @@ mise_rust_version: stable
 mise_herdr_version: 0.7.5
 docker_log_max_size: 10m
 docker_log_max_files: '3'
-t3_code_host: 127.0.0.1
-t3_code_port: 3000
+t3_code_data_dir: "/home/{{ execution_node_user }}/.local/share/t3code"
+t3_code_port: 3773
 t3_code_tailscale_serve_port: 443
+t3_code_user_service_name: t3code.service
+t3_code_legacy_service_name: t3-code.service
+t3_code_legacy_service_path: /etc/systemd/system/t3-code.service

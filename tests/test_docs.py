@@ -97,6 +97,21 @@ class DocumentationTests(unittest.TestCase):
             with self.subTest(name=name):
                 self.assertRegex((DOCS / name).read_text(), secure_esp_mount)
 
+    def test_t3_runbook_links_upstream_update_and_service_guides(self):
+        text = (DOCS / "runbooks" / "t3-code.md").read_text()
+
+        self.assertIn(
+            "https://github.com/pingdotgg/t3code/blob/main/docs/user/updating.md",
+            text,
+        )
+        self.assertIn(
+            "https://github.com/pingdotgg/t3code/blob/main/docs/user/background-service.md",
+            text,
+        )
+        self.assertIn("t3 pair", text)
+        self.assertIn("Tailscale Funnel", text)
+        self.assertIn("needed**: Funnel would make the service public", text)
+
 
 if __name__ == "__main__":
     unittest.main()

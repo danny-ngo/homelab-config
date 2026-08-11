@@ -589,11 +589,21 @@ uv python pin --global</code></pre>
             </li>
             <li>
               <h3>Check, apply and validate the execution-node playbook</h3>
-              <p>Return to the MacBook checkout. The controller playbook installs Tailscale, mise-managed Node.js 24, Go, Rust and Herdr, Codex CLI, OpenCode, and a systemd-managed T3 Code headless server exposed with Tailscale Serve.</p>
+              <p>Return to the MacBook checkout. The controller playbook installs Tailscale, mise-managed Node.js 24, Go, Rust and Herdr, Codex CLI, OpenCode, and the exact repository-pinned T3 Code release through its managed systemd user service. The role enables lingering so the service starts at boot and survives logout.</p>
               <pre><code>./bootstrap.sh --profile execution-node --limit thinkcentre --check
 ./bootstrap.sh --profile execution-node --limit thinkcentre
 make validate LIMIT=thinkcentre</code></pre>
               <p>Use the repository’s current documented targets if they change. Do not bypass a failing check-mode run without understanding the difference.</p>
+            </li>
+            <li>
+              <h3>Publish and pair T3 Code through private Tailscale Serve</h3>
+              <p>Run the pairing command as the execution user after the playbook succeeds. It discovers the active loopback port, configures Tailscale Serve, and emits a short-lived credential. If Tailscale requests consent, enable HTTPS certificates; leave Funnel disabled because this service is tailnet-only.</p>
+              <pre><code>mise exec node@24 -- t3 service status \
+  --base-dir "$HOME/.local/share/t3code"
+mise exec node@24 -- t3 pair \
+  --base-dir "$HOME/.local/share/t3code" \
+  --tailscale --tailscale-serve-port 443 --ttl 10m</code></pre>
+              <p>Keep the desktop client and server on exactly the same version. Follow the <a href="runbooks/t3-code.html">T3 Code remote-service runbook</a>, the upstream <a href="https://github.com/pingdotgg/t3code/blob/main/docs/user/updating.md">update guide</a>, and the upstream <a href="https://github.com/pingdotgg/t3code/blob/main/docs/user/background-service.md">background-service guide</a>.</p>
             </li>
           </ol>
           <div class="callout"><strong>Keep one package owner.</strong> If the
@@ -712,6 +722,8 @@ tailscale status
 ssh -V
 docker version
 docker run --rm hello-world
+mise exec node@24 -- t3 service status --base-dir "$HOME/.local/share/t3code"
+systemctl --user is-active t3code.service
 swapon --show
 df -h /
 df -h /boot
@@ -729,6 +741,7 @@ sudo smartctl -H /dev/nvme0n1</code></pre>
             <li>The host fingerprint is recorded and verified.</li>
             <li>Router DHCP reservation is set.</li>
             <li>Ansible check and validation runs pass.</li>
+            <li>T3 Code reports the repository-pinned version and pairs through private Tailscale Serve.</li>
             <li>Docker logs, journald and package cache are bounded.</li>
             <li>No unique state exists only on this node.</li>
             <li>The Arch USB, monitor and keyboard remain available for recovery.</li>

@@ -70,31 +70,82 @@
     mode: '0750'
   loop:
     - "/home/{{ execution_node_user }}/src"
-    - "/home/{{ execution_node_user }}/.local/share/t3code"
+    - "{{ t3_code_data_dir }}"
 - name: Allow the execution-node user to manage Tailscale Serve
   ansible.builtin.command:
     argv: [tailscale, set, "--operator={{ execution_node_user }}"]
   changed_when: false
-- name: Install the T3 Code headless systemd service
-  ansible.builtin.template:
-    src: t3-code.service.j2
-    dest: /etc/systemd/system/t3-code.service
-    owner: root
-    group: root
-    mode: '0644'
-  notify: Restart T3 Code
-- name: Enable and start T3 Code
+- name: Read the execution-node user's numeric ID
+  ansible.builtin.command:
+    argv: [id, --user, "{{ execution_node_user }}"]
+  register: execution_node_user_id
+  changed_when: false
+- name: Inspect the legacy T3 Code system service
+  ansible.builtin.stat:
+    path: "{{ t3_code_legacy_service_path }}"
+  register: t3_code_legacy_service
+- name: Stop and disable the legacy T3 Code system service
   ansible.builtin.systemd_service:
-    name: t3-code
-    enabled: true
-    state: started
+    name: "{{ t3_code_legacy_service_name }}"
+    enabled: false
+    state: stopped
+  when:
+    - not ansible_check_mode
+    - t3_code_legacy_service.stat.exists
+- name: Remove the legacy T3 Code system service
+  ansible.builtin.file:
+    path: "{{ t3_code_legacy_service_path }}"
+    state: absent
+  register: t3_code_legacy_service_removal
+  when: not ansible_check_mode
+- name: Reload systemd after removing the legacy T3 Code service
+  ansible.builtin.systemd_service:
     daemon_reload: true
+  when:
+    - not ansible_check_mode
+    - t3_code_legacy_service_removal.changed | default(false)
+- name: Enable persistent user services for the execution-node user
+  ansible.builtin.command:
+    argv: [loginctl, enable-linger, "{{ execution_node_user }}"]
+  changed_when: false
+  when: not ansible_check_mode
+- name: Start the execution-node user's systemd manager
+  ansible.builtin.systemd_service:
+    name: "user@{{ execution_node_user_id.stdout }}.service"
+    state: started
+  when: not ansible_check_mode
+- name: Install or update the T3 Code background service
+  ansible.builtin.command:
+    argv:
+      - mise
+      - exec
+      - "node@{{ mise_node_version }}"
+      - --
+      - npx
+      - --yes
+      - "t3@{{ t3_code_version }}"
+      - service
+      - update
+      - --base-dir
+      - "{{ t3_code_data_dir }}"
+  become_user: "{{ execution_node_user }}"
+  become: true
+  environment:
+    HOME: "/home/{{ execution_node_user }}"
+    XDG_RUNTIME_DIR: "/run/user/{{ execution_node_user_id.stdout }}"
+    DBUS_SESSION_BUS_ADDRESS: >-
+      unix:path=/run/user/{{ execution_node_user_id.stdout }}/bus
+  register: t3_code_service_update
+  changed_when: >-
+    t3_code_service_update.stdout is
+    regex('^(Installed|Updated) T3 Code service')
   when: not ansible_check_mode
 - name: Report execution-node security and operator actions
   ansible.builtin.debug:
     msg: >-
       Docker group membership grants root-equivalent access. Python is uv-managed;
       Node, Go, Rust, and Herdr are mise-managed. GitHub CLI, Codex, and OpenCode
-      authentication and T3 Code client pairing remain operator actions. Project
+      authentication and `t3 pair --tailscale` remain operator actions. Keep the
+      T3 client and server on exactly t3@{{ t3_code_version }}. Project
       repositories under ~/src require reviewed commits and frequent pushes to
       GitHub; Ansible does not automatically commit or push working trees.

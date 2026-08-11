@@ -14,6 +14,9 @@ argument_specs:
       mise_herdr_version: {type: str}
       docker_log_max_size: {type: str}
       docker_log_max_files: {type: str}
-      t3_code_host: {type: str}
+      t3_code_data_dir: {type: path}
       t3_code_port: {type: int}
       t3_code_tailscale_serve_port: {type: int}
+      t3_code_user_service_name: {type: str}
+      t3_code_legacy_service_name: {type: str}
+      t3_code_legacy_service_path: {type: path}
