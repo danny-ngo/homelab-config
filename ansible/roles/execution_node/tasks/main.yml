@@ -2,6 +2,19 @@
   ansible.builtin.package:
     name: "{{ execution_node_packages }}"
     state: present
+  register: execution_node_package_install
+- name: Set the execution-node user's login shell
+  ansible.builtin.user:
+    name: "{{ execution_node_user }}"
+    shell: "{{ login_shell }}"
+  when: not ansible_check_mode or not execution_node_package_install.changed
+- name: Create the Docker configuration directory
+  ansible.builtin.file:
+    path: /etc/docker
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
 - name: Configure bounded Docker logs and live restore
   ansible.builtin.template:
     src: daemon.json.j2
@@ -10,10 +23,13 @@
     group: root
     mode: "0644"
   notify: Restart Docker
+  when: not ansible_check_mode or not execution_node_package_install.changed
 - name: Enable and start Docker
   ansible.builtin.service: {name: docker, enabled: true, state: started}
+  when: not ansible_check_mode or not execution_node_package_install.changed
 - name: Grant the execution-node user Docker access
   ansible.builtin.user: {name: "{{ execution_node_user }}", groups: docker, append: true}
+  when: not ansible_check_mode or not execution_node_package_install.changed
 - name: Create the mise configuration directory
   ansible.builtin.file:
     path: "/home/{{ execution_node_user }}/.config/mise"
@@ -73,6 +89,7 @@
     enabled: true
     state: started
     daemon_reload: true
+  when: not ansible_check_mode
 - name: Report execution-node security and operator actions
   ansible.builtin.debug:
     msg: >-

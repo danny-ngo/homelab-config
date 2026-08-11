@@ -1,2 +1,5 @@
 - name: Verify the node architecture remains supported
-  ansible.builtin.assert: {that: [ansible_architecture != 'armv6l'], quiet: true}
+  ansible.builtin.assert:
+    that:
+      - ansible_facts["architecture"] != 'armv6l'
+    quiet: true

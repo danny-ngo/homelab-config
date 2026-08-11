@@ -2,13 +2,13 @@
   ansible.builtin.assert:
     that:
       - groups.get('k3s_servers', []) | length == 1
-      - ansible_architecture in k3s_binary_assets
-      - ansible_architecture in k3s_binary_checksums
-      - k3s_binary_checksums[ansible_architecture] | length == 64
+      - ansible_facts["architecture"] in k3s_binary_assets
+      - ansible_facts["architecture"] in k3s_binary_checksums
+      - k3s_binary_checksums[ansible_facts["architecture"]] | length == 64
       - hostvars[groups['k3s_servers'][0]].k3s_runtime_node_token is defined
     fail_msg: >-
       The agent needs one converged K3s server, its transient join token, and a verified
-      K3s {{ k3s_version }} artifact for {{ ansible_architecture }}.
+      K3s {{ k3s_version }} artifact for {{ ansible_facts["architecture"] }}.
   no_log: true
 
 - name: Create the K3s agent configuration directory
@@ -23,9 +23,9 @@
   ansible.builtin.get_url:
     url: >-
       {{ 'https://github.com/k3s-io/k3s/releases/download/' ~ k3s_version ~ '/'
-         ~ k3s_binary_assets[ansible_architecture] }}
+         ~ k3s_binary_assets[ansible_facts["architecture"]] }}
     dest: /usr/local/bin/k3s
-    checksum: "sha256:{{ k3s_binary_checksums[ansible_architecture] }}"
+    checksum: "sha256:{{ k3s_binary_checksums[ansible_facts['architecture']] }}"
     owner: root
     group: root
     mode: "0755"

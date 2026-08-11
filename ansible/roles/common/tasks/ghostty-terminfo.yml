@@ -41,9 +41,9 @@
   block:
     - name: Install the terminfo compiler
       ansible.builtin.package:
-        name: "{{ common_terminfo_packages.get(ansible_os_family, []) }}"
+        name: "{{ common_terminfo_packages.get(ansible_facts['os_family'], []) }}"
         state: present
-      when: common_terminfo_packages.get(ansible_os_family, []) | length > 0
+      when: common_terminfo_packages.get(ansible_facts["os_family"], []) | length > 0
 
     - name: Resolve the SSH user's home directory
       ansible.builtin.getent:

@@ -24,3 +24,4 @@ execution_node_packages:
   - github-cli
   - mise
   - zsh
+  - zsh-syntax-highlighting

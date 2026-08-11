@@ -5,6 +5,7 @@ argument_specs:
       opencode_version: {type: str}
       t3_code_version: {type: str}
       execution_node_user: {type: str}
+      login_shell: {type: path, required: true}
       execution_node_packages: {type: list, elements: str}
       execution_node_developer_cli_packages: {type: list, elements: str}
       mise_node_version: {type: str}
