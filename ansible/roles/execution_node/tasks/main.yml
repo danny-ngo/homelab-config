@@ -140,12 +140,45 @@
     t3_code_service_update.stdout is
     regex('^(Installed|Updated) T3 Code service')
   when: not ansible_check_mode
+- name: Inspect the T3 Code Tailscale Serve configuration
+  ansible.builtin.command:
+    argv: [tailscale, serve, status, --json]
+  register: t3_code_tailscale_serve_status
+  changed_when: false
+  check_mode: false
+- name: Publish T3 Code through private Tailscale Serve
+  ansible.builtin.command:
+    argv:
+      - tailscale
+      - serve
+      - --bg
+      - --yes
+      - "--https={{ t3_code_tailscale_serve_port }}"
+      - "http://127.0.0.1:{{ t3_code_port }}"
+  changed_when: true
+  when:
+    - not ansible_check_mode
+    - >-
+      not (
+        (
+          (t3_code_tailscale_serve_status.stdout | from_json)
+          .get('TCP', {})
+          .get(t3_code_tailscale_serve_port | string, {})
+          .get('HTTPS', false)
+        )
+        and
+        (
+          'http://127.0.0.1:' ~ (t3_code_port | string)
+          in t3_code_tailscale_serve_status.stdout
+        )
+      )
 - name: Report execution-node security and operator actions
   ansible.builtin.debug:
     msg: >-
       Docker group membership grants root-equivalent access. Python is uv-managed;
       Node, Go, Rust, and Herdr are mise-managed. GitHub CLI, Codex, and OpenCode
-      authentication and `t3 pair --tailscale` remain operator actions. Keep the
-      T3 client and server on exactly t3@{{ t3_code_version }}. Project
+      authentication and T3 client pairing remain operator actions. Tailscale
+      Serve is managed by Ansible. Keep the T3 client and server on exactly
+      t3@{{ t3_code_version }}. Project
       repositories under ~/src require reviewed commits and frequent pushes to
       GitHub; Ansible does not automatically commit or push working trees.

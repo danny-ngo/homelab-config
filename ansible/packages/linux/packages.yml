@@ -23,5 +23,6 @@ execution_node_packages:
   - docker-compose
   - github-cli
   - mise
+  - polkit
   - zsh
   - zsh-syntax-highlighting
