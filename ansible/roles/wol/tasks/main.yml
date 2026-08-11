@@ -1,7 +1,7 @@
 - name: Verify the Wake-on-LAN host and repetition settings
   ansible.builtin.assert:
     that:
-      - ansible_os_family == 'Debian'
+      - ansible_facts["os_family"] == 'Debian'
       - expected_os_family | default('') == 'Debian'
       - wol_targets | length > 0
       - >-

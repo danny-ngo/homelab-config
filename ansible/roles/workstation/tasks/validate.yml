@@ -1,2 +1,5 @@
 - name: Verify this workstation is running macOS
-  ansible.builtin.assert: {that: [ansible_os_family == 'Darwin'], quiet: true}
+  ansible.builtin.assert:
+    that:
+      - ansible_facts["os_family"] == 'Darwin'
+    quiet: true

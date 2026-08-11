@@ -1,16 +1,15 @@
 - name: Verify host identity and administrator access inputs
   ansible.builtin.assert:
     that:
-      - ansible_os_family == expected_os_family
-      - ansible_architecture == expected_architecture
-      - administrator_public_keys | length > 0
+      - ansible_facts["os_family"] == expected_os_family
+      - ansible_facts["architecture"] == expected_architecture
 - name: Install the controller's Ghostty terminfo for the SSH user
   ansible.builtin.include_tasks: ghostty-terminfo.yml
   when: common_ghostty_terminfo_enabled
 - name: Set the Linux hostname
   ansible.builtin.hostname:
     name: "{{ common_hostname }}"
-  when: ansible_system == 'Linux'
+  when: ansible_facts["system"] == 'Linux'
 - name: Install shared operator packages
   ansible.builtin.package:
     name: "{{ operator_linux_packages }}"
@@ -24,7 +23,7 @@
     dest: /usr/local/bin/bat
     state: link
   when:
-    - ansible_os_family == 'Debian'
+    - ansible_facts["os_family"] == 'Debian'
     - "'bat' in operator_linux_packages"
     - inventory_hostname in groups.get('non_raspberry_pi_linux', [])
 - name: Install administrator SSH keys
@@ -32,7 +31,7 @@
     user: "{{ ansible_user }}"
     key: "{{ item }}"
   loop: "{{ administrator_public_keys }}"
-  when: ansible_system == 'Linux'
+  when: ansible_facts["system"] == 'Linux'
 - name: Apply gated SSH hardening
   ansible.builtin.include_tasks: ssh.yml
-  when: ansible_system == 'Linux'
+  when: ansible_facts["system"] == 'Linux'

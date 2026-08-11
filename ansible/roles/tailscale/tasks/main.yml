@@ -1,6 +1,6 @@
 - name: Install the Tailscale app on macOS
   community.general.homebrew_cask: {name: tailscale-app, state: present}
-  when: ansible_os_family == 'Darwin'
+  when: ansible_facts["os_family"] == 'Darwin'
 
 - name: Ensure the Debian package keyring directory exists
   ansible.builtin.file:
@@ -9,7 +9,7 @@
     owner: root
     group: root
     mode: "0755"
-  when: ansible_os_family == 'Debian'
+  when: ansible_facts["os_family"] == 'Debian'
 
 - name: Install the Tailscale Debian repository key
   ansible.builtin.get_url:
@@ -19,7 +19,7 @@
     group: root
     mode: "0644"
   register: tailscale_apt_keyring
-  when: ansible_os_family == 'Debian'
+  when: ansible_facts["os_family"] == 'Debian'
 
 - name: Install the Tailscale Debian repository definition
   ansible.builtin.get_url:
@@ -29,21 +29,26 @@
     group: root
     mode: "0644"
   register: tailscale_apt_repository
-  when: ansible_os_family == 'Debian'
+  when: ansible_facts["os_family"] == 'Debian'
 
 - name: Refresh APT after changing the Tailscale repository
   ansible.builtin.apt:
     update_cache: true
   when:
-    - ansible_os_family == 'Debian'
+    - ansible_facts["os_family"] == 'Debian'
     - tailscale_apt_keyring.changed or tailscale_apt_repository.changed
 
 - name: Install Tailscale on Linux
   ansible.builtin.package: {name: tailscale, state: present}
-  when: ansible_os_family != 'Darwin'
+  register: tailscale_linux_package
+  when: ansible_facts["os_family"] != 'Darwin'
 - name: Enable and start Tailscale on Linux
   ansible.builtin.service: {name: tailscaled, enabled: true, state: started}
-  when: ansible_os_family != 'Darwin'
+  when:
+    - ansible_facts["os_family"] != 'Darwin'
+    - >-
+      not ansible_check_mode
+      or not (tailscale_linux_package.changed | default(false))
 
 - name: Inspect the Linux Tailscale backend state
   ansible.builtin.command:
@@ -52,7 +57,7 @@
   changed_when: false
   failed_when: false
   check_mode: false
-  when: ansible_os_family != 'Darwin' and tailscale_tag is defined
+  when: ansible_facts["os_family"] != 'Darwin' and tailscale_tag is defined
 
 - name: Resolve the Linux Tailscale backend state
   ansible.builtin.set_fact:
@@ -62,7 +67,7 @@
         if tailscale_status.rc == 0 and tailscale_status.stdout is match('^\s*\{')
         else 'Unknown'
       }}
-  when: ansible_os_family != 'Darwin' and tailscale_tag is defined
+  when: ansible_facts["os_family"] != 'Darwin' and tailscale_tag is defined
 
 - name: Verify unattended Tailscale enrollment credentials
   ansible.builtin.assert:
@@ -72,17 +77,18 @@
       - vault_tailscale_auth_keys[inventory_hostname] | length > 0
       - vault_tailscale_auth_keys[inventory_hostname] != 'REPLACE_ME'
     fail_msg: >-
-      Add a valid auth key for {{ inventory_hostname }} to
-      vault_tailscale_auth_keys in the encrypted production vault.
+      Enroll {{ inventory_hostname }} with Tailscale manually, or add a valid
+      auth key to vault_tailscale_auth_keys in the encrypted production vault
+      for unattended fallback enrollment.
   no_log: true
   when:
-    - ansible_os_family != 'Darwin'
+    - ansible_facts["os_family"] != 'Darwin'
     - tailscale_tag is defined
     - tailscale_backend_state in ['NeedsLogin', 'NoState', 'Unknown']
 
 - name: Enroll an unauthenticated Linux Tailscale node
   when:
-    - ansible_os_family != 'Darwin'
+    - ansible_facts["os_family"] != 'Darwin'
     - tailscale_tag is defined
     - tailscale_backend_state in ['NeedsLogin', 'NoState', 'Unknown']
   block:
@@ -114,18 +120,24 @@
         state: absent
       no_log: true
 
-- name: Connect Tailscale and reapply complete Linux preferences
+- name: Reapply mutable Tailscale preferences on an authenticated Linux node
   ansible.builtin.command:
     argv:
       - tailscale
-      - up
+      - set
       - "--accept-dns={{ tailscale_accept_dns | bool | ternary('true', 'false') }}"
       - "--ssh={{ tailscale_ssh | bool | ternary('true', 'false') }}"
-      - "--advertise-tags={{ tailscale_tag }}"
-      - "--timeout={{ tailscale_up_timeout }}"
-  no_log: true
   when:
-    - ansible_os_family != 'Darwin'
+    - ansible_facts["os_family"] != 'Darwin'
     - tailscale_tag is defined
     - tailscale_backend_state not in ['NeedsLogin', 'NoState', 'Unknown']
-  changed_when: tailscale_backend_state != 'Running'
+  changed_when: false
+
+- name: Connect an authenticated but stopped Linux node to Tailscale
+  ansible.builtin.command:
+    argv: [tailscale, up]
+  when:
+    - ansible_facts["os_family"] != 'Darwin'
+    - tailscale_tag is defined
+    - tailscale_backend_state not in ['Running', 'NeedsLogin', 'NoState', 'Unknown']
+  changed_when: true

@@ -102,9 +102,11 @@ class RepositoryContractTests(unittest.TestCase):
         self.assertIn("pihole_version is not defined", tasks)
 
     def test_tailscale_uses_vaulted_keys_only_for_unattended_enrollment(self):
-        tasks = (
+        task_path = (
             ROOT / "ansible" / "roles" / "tailscale" / "tasks" / "main.yml"
-        ).read_text()
+        )
+        tasks = task_path.read_text()
+        parsed_tasks = yaml.safe_load(tasks)
 
         self.assertIn("vault_tailscale_auth_keys[inventory_hostname]", tasks)
         self.assertIn("tailscale_backend_state", tasks)
@@ -112,6 +114,154 @@ class RepositoryContractTests(unittest.TestCase):
         self.assertIn("Remove the staged Tailscale auth key", tasks)
         self.assertIn("'REPLACE_ME'", tasks)
         self.assertIn("no_log: true", tasks)
+        self.assertIn("Enroll {{ inventory_hostname }} with Tailscale manually", tasks)
+
+        preference_task = next(
+            task
+            for task in parsed_tasks
+            if task["name"]
+            == "Reapply mutable Tailscale preferences on an authenticated Linux node"
+        )
+        preference_argv = preference_task["ansible.builtin.command"]["argv"]
+        self.assertEqual(
+            preference_argv[:2],
+            ["tailscale", "set"],
+        )
+        self.assertFalse(
+            any(argument.startswith("--advertise-tags=") for argument in preference_argv)
+        )
+        self.assertNotIn("no_log", preference_task)
+
+        enrollment_block = next(
+            task
+            for task in parsed_tasks
+            if task["name"] == "Enroll an unauthenticated Linux Tailscale node"
+        )["block"]
+        enrollment_task = next(
+            task
+            for task in enrollment_block
+            if task["name"] == "Connect Tailscale with the staged auth key"
+        )
+        self.assertTrue(
+            any(
+                argument.startswith("--advertise-tags=")
+                for argument in enrollment_task["ansible.builtin.command"]["argv"]
+            )
+        )
+        self.assertTrue(enrollment_task["no_log"])
+
+        reconnect_task = next(
+            task
+            for task in parsed_tasks
+            if task["name"]
+            == "Connect an authenticated but stopped Linux node to Tailscale"
+        )
+        self.assertEqual(
+            reconnect_task["ansible.builtin.command"]["argv"],
+            ["tailscale", "up"],
+        )
+
+    def test_fresh_host_service_tasks_are_safe_in_check_mode(self):
+        role_tasks = {
+            role: yaml.safe_load(
+                (ROOT / "ansible" / "roles" / role / "tasks" / "main.yml").read_text()
+            )
+            for role in ("firewall", "tailscale", "execution_node")
+        }
+
+        guarded_services = (
+            (
+                "firewall",
+                "Install firewalld on Arch-family hosts",
+                "Enable firewalld on Arch-family hosts",
+                "firewall_firewalld_package",
+            ),
+            (
+                "tailscale",
+                "Install Tailscale on Linux",
+                "Enable and start Tailscale on Linux",
+                "tailscale_linux_package",
+            ),
+            (
+                "execution_node",
+                "Install execution-node packages",
+                "Enable and start Docker",
+                "execution_node_package_install",
+            ),
+        )
+        for role, install_name, service_name, register_name in guarded_services:
+            with self.subTest(role=role, service=service_name):
+                install_task = next(
+                    task for task in role_tasks[role] if task["name"] == install_name
+                )
+                service_task = next(
+                    task for task in role_tasks[role] if task["name"] == service_name
+                )
+                raw_conditions = service_task["when"]
+                conditions = (
+                    raw_conditions
+                    if isinstance(raw_conditions, str)
+                    else "\n".join(raw_conditions)
+                )
+
+                self.assertEqual(install_task["register"], register_name)
+                self.assertIn("ansible_check_mode", conditions)
+                self.assertIn(register_name, conditions)
+
+        t3_service = next(
+            task
+            for task in role_tasks["execution_node"]
+            if task["name"] == "Enable and start T3 Code"
+        )
+        self.assertEqual(t3_service["when"], "not ansible_check_mode")
+
+        docker_membership = next(
+            task
+            for task in role_tasks["execution_node"]
+            if task["name"] == "Grant the execution-node user Docker access"
+        )
+        self.assertIn("ansible_check_mode", docker_membership["when"])
+        self.assertIn("execution_node_package_install", docker_membership["when"])
+
+        docker_template = next(
+            task
+            for task in role_tasks["execution_node"]
+            if task["name"] == "Configure bounded Docker logs and live restore"
+        )
+        self.assertIn("ansible_check_mode", docker_template["when"])
+        self.assertIn("execution_node_package_install", docker_template["when"])
+
+    def test_docker_roles_create_the_configuration_directory(self):
+        for role in ("execution_node", "infra_host"):
+            tasks = yaml.safe_load(
+                (ROOT / "ansible" / "roles" / role / "tasks" / "main.yml").read_text()
+            )
+            directory = next(
+                task
+                for task in tasks
+                if task["name"] == "Create the Docker configuration directory"
+            )["ansible.builtin.file"]
+            self.assertEqual(directory["path"], "/etc/docker")
+            self.assertEqual(directory["state"], "directory")
+            self.assertEqual(directory["owner"], "root")
+            self.assertEqual(directory["group"], "root")
+
+    def test_ssh_pipelining_avoids_systemd_osc_module_output(self):
+        config = (ROOT / "ansible" / "ansible.cfg").read_text()
+        self.assertIn("[ssh_connection]", config)
+        self.assertRegex(config, r"(?m)^pipelining\s*=\s*True$")
+
+    def test_roles_do_not_rely_on_deprecated_injected_fact_variables(self):
+        deprecated_facts = re.compile(
+            r"\bansible_(?:architecture|default_ipv4|distribution_release|"
+            r"interfaces|memtotal_mb|os_family|service_mgr|system)\b"
+        )
+        roles_root = ROOT / "ansible" / "roles"
+        for path in roles_root.rglob("*"):
+            if path.suffix not in {".yml", ".yaml", ".j2"}:
+                continue
+            with self.subTest(path=path.relative_to(ROOT)):
+                self.assertIsNone(deprecated_facts.search(path.read_text()))
 
     def test_ssh_handler_uses_the_platform_service_name(self):
         defaults = (
@@ -121,7 +271,10 @@ class RepositoryContractTests(unittest.TestCase):
             ROOT / "ansible" / "roles" / "common" / "handlers" / "main.yml"
         ).read_text()
 
-        self.assertIn("'sshd' if ansible_os_family == 'Archlinux' else 'ssh'", defaults)
+        self.assertIn(
+            "'sshd' if ansible_facts['os_family'] == 'Archlinux' else 'ssh'",
+            defaults,
+        )
         self.assertIn("common_ssh_service_name", handlers)
 
     def test_k3s_agent_uses_only_the_runtime_discovered_token(self):
@@ -285,7 +438,10 @@ class RepositoryContractTests(unittest.TestCase):
         stow_task_index = tasks.index(stow_task)
 
         self.assertEqual(defaults["dotfiles_profiles"], [])
-        self.assertIn("ansible_os_family == 'Darwin'", defaults["dotfiles_target_home"])
+        self.assertIn(
+            "ansible_facts['os_family'] == 'Darwin'",
+            defaults["dotfiles_target_home"],
+        )
         self.assertIn("stow", stow_argv)
         self.assertIn("--restow", stow_argv)
         self.assertIn("dotfiles_checkout", stow_argv)
@@ -308,6 +464,47 @@ class RepositoryContractTests(unittest.TestCase):
                     (group_vars_root / group / "main.yml").read_text()
                 )
                 self.assertEqual(group_vars["dotfiles_profiles"], profiles)
+
+    def test_execution_node_applies_and_validates_its_login_shell(self):
+        role_root = ROOT / "ansible" / "roles" / "execution_node"
+        tasks = yaml.safe_load((role_root / "tasks" / "main.yml").read_text())
+        validation = yaml.safe_load(
+            (role_root / "tasks" / "validate.yml").read_text()
+        )
+        group_vars = yaml.safe_load(
+            (
+                ROOT
+                / "ansible"
+                / "inventories"
+                / "example"
+                / "group_vars"
+                / "execution_nodes"
+                / "main.yml"
+            ).read_text()
+        )
+
+        shell_task = next(
+            task
+            for task in tasks
+            if task["name"] == "Set the execution-node user's login shell"
+        )
+        shell_validation = next(
+            task
+            for task in validation
+            if task["name"] == "Verify the execution-node user's login shell"
+        )
+
+        self.assertEqual(
+            shell_task["ansible.builtin.user"],
+            {"name": "{{ execution_node_user }}", "shell": "{{ login_shell }}"},
+        )
+        self.assertIn("ansible_check_mode", shell_task["when"])
+        self.assertIn("execution_node_package_install", shell_task["when"])
+        self.assertIn(
+            "ansible_facts.getent_passwd[execution_node_user][5] == login_shell",
+            shell_validation["ansible.builtin.assert"]["that"],
+        )
+        self.assertEqual(group_vars["login_shell"], "/usr/bin/zsh")
 
     def test_baseline_roles_are_applied_once_through_site_profiles(self):
         for playbook in ("infra-host.yml", "execution-node.yml", "dns.yml"):

@@ -1,5 +1,5 @@
 PIHOLE_INTERFACE={{ pihole_interface }}
-IPV4_ADDRESS={{ ansible_default_ipv4.address }}/{{ lan_cidr | cidr_prefix }}
+IPV4_ADDRESS={{ ansible_facts["default_ipv4"]["address"] }}/{{ lan_cidr | cidr_prefix }}
 IPV6_ADDRESS=
 QUERY_LOGGING={{ pihole_query_logging | bool | lower }}
 INSTALL_WEB_INTERFACE=true

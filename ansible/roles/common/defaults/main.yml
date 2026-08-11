@@ -1,6 +1,6 @@
 operator_linux_packages: []
 common_hostname: "{{ inventory_hostname }}"
-common_ssh_service_name: "{{ 'sshd' if ansible_os_family == 'Archlinux' else 'ssh' }}"
+common_ssh_service_name: "{{ 'sshd' if ansible_facts['os_family'] == 'Archlinux' else 'ssh' }}"
 common_ghostty_terminfo_enabled: true
 common_ghostty_terminfo_database: /Applications/Ghostty.app/Contents/Resources/terminfo
 common_ghostty_infocmp_path: /usr/bin/infocmp

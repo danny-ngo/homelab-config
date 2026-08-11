@@ -3,14 +3,14 @@
     that:
       - groups.get('k3s_servers', []) | length == 1
       - groups.get('k3s_servers', []) | intersect(groups.get('k3s_workers_supported', [])) | length == 0
-      - ansible_service_mgr == 'systemd'
+      - ansible_facts["service_mgr"] == 'systemd'
       - >-
-        ansible_memtotal_mb >= (
+        ansible_facts["memtotal_mb"] >= (
           k3s_server_minimum_memory_mb
           if inventory_hostname in groups.get('k3s_servers', [])
           else k3s_agent_minimum_memory_mb
         )
-      - ansible_architecture != 'armv6l'
+      - ansible_facts["architecture"] != 'armv6l'
       - k3s_cluster_cidr | cidr_valid
       - k3s_service_cidr | cidr_valid
       - not (k3s_cluster_cidr | cidr_overlaps(k3s_service_cidr))

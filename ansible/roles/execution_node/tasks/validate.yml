@@ -1,3 +1,16 @@
+- name: Read the execution-node user's account entry
+  ansible.builtin.getent:
+    database: passwd
+    key: "{{ execution_node_user }}"
+- name: Verify the execution-node user's login shell
+  ansible.builtin.assert:
+    that:
+      - ansible_facts.getent_passwd[execution_node_user][5] == login_shell
+    fail_msg: >-
+      {{ execution_node_user }} uses
+      {{ ansible_facts.getent_passwd[execution_node_user][5] }} instead of
+      {{ login_shell }}.
+    quiet: true
 - name: Verify Docker is available
   ansible.builtin.command: docker --version
   changed_when: false

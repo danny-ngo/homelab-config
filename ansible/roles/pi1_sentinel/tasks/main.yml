@@ -1,9 +1,9 @@
 - name: Verify the Pi 1 sentinel platform and timing
   ansible.builtin.assert:
     that:
-      - ansible_os_family == 'Debian'
-      - ansible_architecture == 'armv6l'
-      - ansible_service_mgr == 'systemd'
+      - ansible_facts["os_family"] == 'Debian'
+      - ansible_facts["architecture"] == 'armv6l'
+      - ansible_facts["service_mgr"] == 'systemd'
       - expected_os_family | default('') == 'Debian'
       - expected_architecture | default('') == 'armv6l'
       - pi1_sentinel_dns_server is match('^[A-Za-z0-9][A-Za-z0-9._:-]*$')

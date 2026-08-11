@@ -1,10 +1,12 @@
 - name: Verify the pinned K3s artifact is defined for this architecture
   ansible.builtin.assert:
     that:
-      - ansible_architecture in k3s_binary_assets
-      - ansible_architecture in k3s_binary_checksums
-      - k3s_binary_checksums[ansible_architecture] | length == 64
-    fail_msg: "No verified K3s {{ k3s_version }} artifact is configured for {{ ansible_architecture }}."
+      - ansible_facts["architecture"] in k3s_binary_assets
+      - ansible_facts["architecture"] in k3s_binary_checksums
+      - k3s_binary_checksums[ansible_facts["architecture"]] | length == 64
+    fail_msg: >-
+      No verified K3s {{ k3s_version }} artifact is configured for
+      {{ ansible_facts["architecture"] }}.
 
 - name: Create the K3s configuration directory
   ansible.builtin.file:
@@ -18,9 +20,9 @@
   ansible.builtin.get_url:
     url: >-
       {{ 'https://github.com/k3s-io/k3s/releases/download/' ~ k3s_version ~ '/'
-         ~ k3s_binary_assets[ansible_architecture] }}
+         ~ k3s_binary_assets[ansible_facts["architecture"]] }}
     dest: /usr/local/bin/k3s
-    checksum: "sha256:{{ k3s_binary_checksums[ansible_architecture] }}"
+    checksum: "sha256:{{ k3s_binary_checksums[ansible_facts['architecture']] }}"
     owner: root
     group: root
     mode: "0755"
