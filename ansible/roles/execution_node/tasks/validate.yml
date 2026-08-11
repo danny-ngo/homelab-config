@@ -21,8 +21,18 @@
   become: true
   environment:
     HOME: "/home/{{ execution_node_user }}"
-  loop: [codex, opencode, t3]
+  loop: [codex, opencode]
   changed_when: false
+- name: Read the installed T3 Code CLI version
+  ansible.builtin.command:
+    argv: [mise, exec, "node@{{ mise_node_version }}", --, t3, --version]
+  become_user: "{{ execution_node_user }}"
+  become: true
+  environment:
+    HOME: "/home/{{ execution_node_user }}"
+  register: t3_code_cli_version
+  changed_when: false
+  failed_when: t3_code_version not in t3_code_cli_version.stdout
 - name: Verify Herdr is available
   ansible.builtin.command:
     argv:
@@ -37,7 +47,57 @@
   environment:
     HOME: "/home/{{ execution_node_user }}"
   changed_when: false
-- name: Verify T3 Code is running
-  ansible.builtin.systemd_service:
-    name: t3-code
-    state: started
+- name: Read the execution-node user's numeric ID for T3 validation
+  ansible.builtin.command:
+    argv: [id, --user, "{{ execution_node_user }}"]
+  register: execution_node_validation_user_id
+  changed_when: false
+- name: Verify the managed T3 Code service version
+  ansible.builtin.command:
+    argv:
+      - mise
+      - exec
+      - "node@{{ mise_node_version }}"
+      - --
+      - t3
+      - service
+      - status
+      - --base-dir
+      - "{{ t3_code_data_dir }}"
+  become_user: "{{ execution_node_user }}"
+  become: true
+  environment:
+    HOME: "/home/{{ execution_node_user }}"
+    XDG_RUNTIME_DIR: "/run/user/{{ execution_node_validation_user_id.stdout }}"
+    DBUS_SESSION_BUS_ADDRESS: >-
+      unix:path=/run/user/{{ execution_node_validation_user_id.stdout }}/bus
+  register: t3_code_service_status
+  changed_when: false
+  failed_when: >-
+    'installed' not in t3_code_service_status.stdout or
+    t3_code_version not in t3_code_service_status.stdout
+- name: Verify the managed T3 Code service is active
+  ansible.builtin.command:
+    argv: [systemctl, --user, is-active, "{{ t3_code_user_service_name }}"]
+  become_user: "{{ execution_node_user }}"
+  become: true
+  environment:
+    HOME: "/home/{{ execution_node_user }}"
+    XDG_RUNTIME_DIR: "/run/user/{{ execution_node_validation_user_id.stdout }}"
+    DBUS_SESSION_BUS_ADDRESS: >-
+      unix:path=/run/user/{{ execution_node_validation_user_id.stdout }}/bus
+  changed_when: false
+- name: Read the local T3 Code environment descriptor
+  ansible.builtin.uri:
+    url: >-
+      http://127.0.0.1:{{ t3_code_port }}/.well-known/t3/environment
+    return_content: true
+  register: t3_code_environment
+- name: Verify the running T3 Code server version
+  ansible.builtin.assert:
+    that:
+      - t3_code_environment.json.serverVersion == t3_code_version
+    fail_msg: >-
+      T3 Code is running {{ t3_code_environment.json.serverVersion }} instead
+      of the configured {{ t3_code_version }}.
+    quiet: true

@@ -85,6 +85,8 @@ reviewed operator action.
 ## Rebuild acceptance
 
 A clean ThinkCentre rebuild is successful when the execution-node Ansible
-profile restores the host tooling, T3 Code starts through Tailscale, every
-active project can be recloned from GitHub, and no required project source
-depends on the old disk.
+profile restores the host tooling, the version-matched T3 Code background
+service passes validation and is paired through Tailscale Serve, every active
+project can be recloned from GitHub, and no required project source depends on
+the old disk. Follow the [T3 Code remote-service runbook](t3-code.md) for
+pairing, updates, and connection diagnostics.

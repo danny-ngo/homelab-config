@@ -211,7 +211,7 @@ class RepositoryContractTests(unittest.TestCase):
         t3_service = next(
             task
             for task in role_tasks["execution_node"]
-            if task["name"] == "Enable and start T3 Code"
+            if task["name"] == "Install or update the T3 Code background service"
         )
         self.assertEqual(t3_service["when"], "not ansible_check_mode")
 
@@ -516,7 +516,7 @@ class RepositoryContractTests(unittest.TestCase):
             text = (ROOT / "bootstrap" / "profiles" / profile).read_text()
             self.assertIn("ansible/playbooks/site.yml", text)
 
-    def test_developer_clis_and_t3_headless_service_are_managed(self):
+    def test_developer_clis_and_t3_background_service_are_managed(self):
         for role in ("workstation", "execution_node"):
             defaults = yaml.safe_load(
                 (ROOT / "ansible" / "roles" / role / "defaults" / "main.yml").read_text()
@@ -525,16 +525,55 @@ class RepositoryContractTests(unittest.TestCase):
             self.assertTrue(any("@openai/codex@" in package for package in packages))
             self.assertTrue(any("opencode-ai@" in package for package in packages))
 
-        service = (
-            ROOT
-            / "ansible"
-            / "roles"
-            / "execution_node"
-            / "templates"
-            / "t3-code.service.j2"
-        ).read_text()
-        self.assertIn("t3 serve", service)
-        self.assertIn("--tailscale-serve", service)
+        defaults = yaml.safe_load(
+            (
+                ROOT
+                / "ansible"
+                / "roles"
+                / "execution_node"
+                / "defaults"
+                / "main.yml"
+            ).read_text()
+        )
+        self.assertRegex(
+            defaults["t3_code_version"],
+            re.compile(r"^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$"),
+        )
+
+        tasks = yaml.safe_load(
+            (
+                ROOT
+                / "ansible"
+                / "roles"
+                / "execution_node"
+                / "tasks"
+                / "main.yml"
+            ).read_text()
+        )
+        service_update = next(
+            task
+            for task in tasks
+            if task["name"] == "Install or update the T3 Code background service"
+        )
+        service_argv = service_update["ansible.builtin.command"]["argv"]
+        self.assertIn("t3@{{ t3_code_version }}", service_argv)
+        self.assertIn("service", service_argv)
+        self.assertIn("update", service_argv)
+        self.assertEqual(service_update["become_user"], "{{ execution_node_user }}")
+
+        task_names = {task["name"] for task in tasks}
+        self.assertIn("Stop and disable the legacy T3 Code system service", task_names)
+        self.assertIn("Enable persistent user services for the execution-node user", task_names)
+        self.assertFalse(
+            (
+                ROOT
+                / "ansible"
+                / "roles"
+                / "execution_node"
+                / "templates"
+                / "t3-code.service.j2"
+            ).exists()
+        )
 
     def test_raspberry_pis_are_excluded_from_linux_package_manifest_group(self):
         groups = self.inventory["all"]["children"]
