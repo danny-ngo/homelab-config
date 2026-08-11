@@ -97,20 +97,36 @@ class DocumentationTests(unittest.TestCase):
             with self.subTest(name=name):
                 self.assertRegex((DOCS / name).read_text(), secure_esp_mount)
 
-    def test_t3_runbook_links_upstream_update_and_service_guides(self):
-        text = (DOCS / "runbooks" / "t3-code.md").read_text()
+    def test_t3_guides_cover_updates_background_service_and_private_pairing(self):
+        guides = {
+            "runbooks/t3-code.md": (DOCS / "runbooks" / "t3-code.md").read_text(),
+            "thinkcentre-arch-cachyos-maintenance.html": (
+                DOCS / "thinkcentre-arch-cachyos-maintenance.html"
+            ).read_text(),
+        }
+
+        for name, text in guides.items():
+            with self.subTest(name=name):
+                self.assertIn(
+                    "https://github.com/pingdotgg/t3code/blob/main/docs/user/updating.md",
+                    text,
+                )
+                self.assertIn(
+                    "https://github.com/pingdotgg/t3code/blob/main/docs/user/background-service.md",
+                    text,
+                )
+                self.assertIn("t3 pair", text)
+                self.assertIn("Tailscale Funnel", text)
 
         self.assertIn(
-            "https://github.com/pingdotgg/t3code/blob/main/docs/user/updating.md",
-            text,
+            "needed**: Funnel would make the service public",
+            guides["runbooks/t3-code.md"],
         )
+        self.assertIn("t3code.service", guides["thinkcentre-arch-cachyos-maintenance.html"])
         self.assertIn(
-            "https://github.com/pingdotgg/t3code/blob/main/docs/user/background-service.md",
-            text,
+            "Do not enable Tailscale Funnel",
+            guides["thinkcentre-arch-cachyos-maintenance.html"],
         )
-        self.assertIn("t3 pair", text)
-        self.assertIn("Tailscale Funnel", text)
-        self.assertIn("needed**: Funnel would make the service public", text)
 
 
 if __name__ == "__main__":

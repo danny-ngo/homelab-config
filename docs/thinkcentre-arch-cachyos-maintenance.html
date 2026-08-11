@@ -165,7 +165,7 @@
 <body>
   <div class="page">
     <header class="masthead">
-      <p class="kicker">ThinkCentre Tiny · operator runbook · reviewed 7 August 2026</p>
+      <p class="kicker">ThinkCentre Tiny · operator runbook · reviewed 11 August 2026</p>
       <h1>Arch + CachyOS maintenance runbook</h1>
       <p class="lede">The normal rhythm and recovery procedures for a rebuildable remote execution node. Use this runbook to keep Arch and CachyOS current without turning routine updates into an availability gamble.</p>
       <div class="meta" aria-label="Runbook properties">
@@ -193,6 +193,7 @@
           <li><a href="#boot">Kernel and boot control</a></li>
           <li><a href="#capacity">Capacity and housekeeping</a></li>
           <li><a href="#backup">Configuration backup</a></li>
+          <li><a href="#t3-code">T3 Code service</a></li>
           <li><a href="#kernel-failure">Kernel boot failure</a></li>
           <li><a href="#network-failure">Network or SSH failure</a></li>
           <li><a href="#disk-full">Disk full</a></li>
@@ -222,7 +223,7 @@
           <table>
             <thead><tr><th>Cadence</th><th>Actions</th><th>Escalate when</th></tr></thead>
             <tbody>
-              <tr><td>Before work</td><td>Confirm SSH/Tailscale, free space and no failed units if the node has been idle.</td><td>The host rebooted unexpectedly, storage changed, or the previous session ended abnormally.</td></tr>
+              <tr><td>Before work</td><td>Confirm SSH/Tailscale, free space, no failed units, and T3 Code service health if the node has been idle.</td><td>The host rebooted unexpectedly, storage changed, T3 Code cannot reconnect, or the previous session ended abnormally.</td></tr>
               <tr><td>End of work session</td><td>Review changes, run relevant tests, commit intentional project source and push the active branch to GitHub.</td><td>The repository has no expected remote, the branch has no upstream, or unique work cannot be safely committed or backed up.</td></tr>
               <tr><td>Every 1–2 weeks</td><td>Read Arch news, inspect pending updates, run the controlled update workflow, reboot and smoke-test.</td><td>Core packages, kernel, bootloader, microcode or filesystem tools report errors.</td></tr>
               <tr><td>Monthly</td><td>Review Docker storage, package cache, orphans, journal size, exposed sockets, firewall posture, SMART, temperatures and configuration drift.</td><td>Disk exceeds 80%, an unexpected service is listening, SMART is not healthy, or sustained load thermally throttles.</td></tr>
@@ -403,6 +404,49 @@ tailscale status &gt; ~/rebuild-manifest/tailscale-status.txt</code></pre>
           </table>
         </section>
 
+        <section id="t3-code">
+          <p class="section-label">07 · Remote development service</p>
+          <h2>Keep the T3 Code client and managed server in sync</h2>
+          <p class="section-intro">T3 Code runs as the execution user's upstream-managed <code>t3code.service</code> user unit. It listens on loopback and Tailscale Serve exposes it privately to the tailnet over HTTPS. Use the complete <a href="runbooks/t3-code.html">T3 Code remote service runbook</a> for deployment and pairing.</p>
+          <h3>Check health before and after maintenance</h3>
+          <pre><code>mise exec node@24 -- t3 service status \
+  --base-dir "$HOME/.local/share/t3code"
+systemctl --user status t3code.service --no-pager
+curl -fsS http://127.0.0.1:3773/.well-known/t3/environment
+tailscale serve status</code></pre>
+          <p>Use <code>journalctl --user -u t3code.service</code> and the log path printed by <code>t3 service status</code> when the local health check fails. This is a user service: do not diagnose or restart the retired root-owned <code>t3-code.service</code>.</p>
+
+          <h3>Update to the exact desktop-client version</h3>
+          <ol>
+            <li>Let active agents and terminal commands finish; the server restarts during the handoff.</li>
+            <li>Read the exact client version from the warning or <strong>Settings → Connections</strong>, including any nightly suffix.</li>
+            <li>Set <code>t3_code_version</code> in the execution-node role defaults to that exact value, then run the Ansible check, apply, and validation workflow from the control Mac.</li>
+            <li>Keep the desktop client open while the server updates and reconnects.</li>
+            <li>Repeat the health checks and create a new pairing link if Tailscale Serve was reset.</li>
+          </ol>
+          <pre><code># Manual recovery only; prefer the version-pinned Ansible role.
+npx --yes t3@&lt;exact-client-version&gt; service update \
+  --base-dir "$HOME/.local/share/t3code"</code></pre>
+          <p>Do not substitute <code>latest</code> unless the client is itself on the latest release. The managed launcher stores exact runtimes separately, snapshots the database before a candidate update, and can roll back a candidate that fails after its initial migration.</p>
+
+          <h3>Repair pairing and private HTTPS access</h3>
+          <pre><code>mise exec node@24 -- t3 pair \
+  --base-dir "$HOME/.local/share/t3code" \
+  --tailscale \
+  --tailscale-serve-port 443 \
+  --ttl 10m</code></pre>
+          <p>Enable <strong>HTTPS Certificates</strong> for the tailnet if Tailscale requests consent, then rerun the command. <strong>Do not enable Tailscale Funnel:</strong> Funnel publishes the service to the public internet, while Serve keeps it inside the tailnet. Treat every pairing URL as a short-lived credential and never paste it into issues, chat, screenshots, or logs.</p>
+          <table>
+            <thead><tr><th>Symptom</th><th>Action</th></tr></thead>
+            <tbody>
+              <tr><td>Local HTTP health check fails</td><td>Inspect the user unit, its journal, and the application log reported by <code>t3 service status</code>.</td></tr>
+              <tr><td>Local HTTP works; Tailscale HTTPS fails</td><td>Confirm Tailscale is connected, HTTPS certificates are enabled, and <code>tailscale serve status</code> targets the active loopback port; then rerun <code>t3 pair --tailscale</code>.</td></tr>
+              <tr><td>The environment descriptor works; the app keeps reconnecting</td><td>Compare its <code>serverVersion</code> with the desktop version, apply the exact matching pin, remove the stale saved connection, and pair with a fresh token.</td></tr>
+              <tr><td>The pairing URL uses loopback HTTP or has expired</td><td>Discard it and generate a fresh Tailscale pairing URL instead of reusing service-startup output.</td></tr>
+            </tbody>
+          </table>
+        </section>
+
         <section id="kernel-failure">
           <p class="section-label">Incident A</p>
           <h2>CachyOS kernel does not boot or the host never returns</h2>
@@ -578,7 +622,7 @@ bootctl --esp-path=/boot list</code></pre></div>
         </section>
 
         <section id="rebuild">
-          <p class="section-label">07 · Terminal recovery</p>
+          <p class="section-label">08 · Terminal recovery</p>
           <h2>Know when repair has become less reliable than rebuild</h2>
           <p>Reinstall instead of continuing forensic repair when any of these are true:</p>
           <ul>
@@ -594,7 +638,7 @@ bootctl --esp-path=/boot list</code></pre></div>
             <li>Record the current host SSH fingerprint so its replacement is expected.</li>
             <li>Re-run the companion installation guide.</li>
             <li>Apply the execution-node Ansible profile.</li>
-            <li>Re-enroll Tailscale and Codex through their supported login flows.</li>
+            <li>Re-enroll Tailscale and Codex through their supported login flows, apply the pinned T3 Code service, and create a fresh pairing URL.</li>
             <li>Restore repositories and only the selected caches worth keeping.</li>
             <li>Run the full acceptance checklist before deleting the old disk or backup.</li>
           </ol>
@@ -634,6 +678,8 @@ Follow-up:</code></pre>
             <li><a href="https://wiki.cachyos.org/features/cachyos_settings/">CachyOS settings and override model</a></li>
             <li><a href="https://wiki.cachyos.org/configuration/post_install_setup/">CachyOS post-install recommendations</a></li>
             <li><a href="https://uapi-group.org/specifications/specs/boot_loader_specification/">Boot Loader Specification</a></li>
+            <li><a href="https://github.com/pingdotgg/t3code/blob/main/docs/user/updating.md">Keeping T3 Code in Sync</a></li>
+            <li><a href="https://github.com/pingdotgg/t3code/blob/main/docs/user/background-service.md">Running T3 Code in the Background</a></li>
           </ul>
         </section>
       </main>
