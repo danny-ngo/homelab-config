@@ -17,6 +17,7 @@ Ansible controller and manages a mixed Linux fleet with narrowly scoped roles.
 ## Start here
 
 - [Homelab plan and interactive architecture overview](homelab-plan.html)
+- [Development and application deployment workflow](development-deployment-workflow.md)
 - [Bootstrap Python, Ansible, and uv flow](bootstrap-python-flow.md)
 - [Open homelab decisions](decisions/open-decisions.md)
 - [Repository source and primary usage guide](https://github.com/danny-ngo/homelab-config)

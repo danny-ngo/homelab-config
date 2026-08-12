@@ -146,7 +146,8 @@ ThinkCentre, while databases are planned as Docker containers on the ThinkPad
 with explicit persistent paths and backups. Project source on the ThinkCentre
 must be committed and pushed to GitHub at frequent checkpoints so the execution
 node remains rebuildable. See
-[ThinkCentre workspace durability](docs/runbooks/thinkcentre-workspaces.md).
+[ThinkCentre workspace durability](docs/runbooks/thinkcentre-workspaces.md) and
+the [development and application deployment workflow](docs/development-deployment-workflow.md).
 
 The ThinkPad uses Debian 13's native `docker.io`, `docker-cli`, and
 `docker-compose` packages. Docker's separate APT repository is deliberately not

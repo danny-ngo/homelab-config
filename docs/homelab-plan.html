@@ -183,7 +183,7 @@
 <body>
   <main class="shell">
     <header>
-      <p class="eyebrow">Planning baseline · reviewed 29 July 2026</p>
+      <p class="eyebrow">Planning baseline · reviewed 11 August 2026</p>
       <h1>Full Homelab Plan</h1>
       <p class="lede">A staged path from an empty automation scaffold to a recoverable eight-device homelab: three Tailscale-connected computers, a Tailscale-connected Pi 2 DNS and edge-access node, a mixed-architecture K3s cluster, and an explicit bridge to the separate dotfiles repository.</p>
       <div class="status-line" aria-label="Plan legend">
@@ -258,7 +258,7 @@
           <button class="phase" data-phase="2" aria-pressed="false"><span class="phase-num">2</span><span>Primary computers<small>Tailscale + execution</small></span></button>
           <button class="phase" data-phase="3" aria-pressed="false"><span class="phase-num">3</span><span>Resilient DNS<small>Pi 2 + second host later</small></span></button>
           <button class="phase" data-phase="4" aria-pressed="false"><span class="phase-num">4</span><span>K3s cluster<small>server + Pi 3 workers</small></span></button>
-          <button class="phase" data-phase="5" aria-pressed="false"><span class="phase-num">5</span><span>Data platform<small>databases + pipelines</small></span></button>
+          <button class="phase" data-phase="5" aria-pressed="false"><span class="phase-num">5</span><span>Data + delivery<small>databases + GitHub Actions</small></span></button>
           <button class="phase" data-phase="6" aria-pressed="false"><span class="phase-num">6</span><span>Operations<small>health + recovery</small></span></button>
         </div>
         <div class="phase-detail" aria-live="polite">
@@ -283,8 +283,9 @@
             <tr><td>Remote access</td><td>This repo + tailnet policy</td><td>Three primary computers + Pi 2 edge endpoint</td><td>Pi 2 sends WoL directly; the Pi 1 edge nodes stay off the tailnet</td></tr>
             <tr><td>DNS filtering</td><td>This repo · bare-metal Pi-hole role</td><td>Dedicated Pi 2 for LAN; tailnet clients after the security gate; second supported host later</td><td>Keep existing router DNS unchanged and tailnet DNS disabled until their separate validation gates pass</td></tr>
             <tr><td>K3s lifecycle</td><td>This repo · Ansible</td><td>ThinkPad + two Pi 3s</td><td>Pi 2 admission waits for the Pi-hole workload and dedicated placement policy</td></tr>
-            <tr><td>In-cluster applications</td><td>Kubernetes manifests / Helm</td><td>Compatible K3s nodes</td><td>Multi-arch images and explicit scheduling</td></tr>
-            <tr><td>Databases and orchestration state</td><td>Docker on ThinkPad</td><td>Named persistent paths outside container layers</td><td>Restore must pass an application-level query</td></tr>
+            <tr><td>In-cluster applications</td><td>Application repos + GitHub Actions</td><td>Compatible K3s nodes</td><td>Immutable image digests, versioned Helm/manifests, multi-arch images, and explicit scheduling</td></tr>
+            <tr><td>Databases and automation state</td><td>Docker on ThinkPad</td><td>Named persistent paths outside container layers</td><td>Restore must pass an application-level query</td></tr>
+            <tr><td>CI/CD orchestration</td><td>GitHub Actions</td><td>GitHub-hosted CI + protected ThinkCentre deployment runner</td><td>Production deploys require an approved immutable release and purpose-scoped private credentials</td></tr>
             <tr><td>Agentic development</td><td>Execution-node role + dotfiles</td><td>Always-on ThinkCentre · bare metal</td><td>Project source is frequently committed and pushed to GitHub</td></tr>
             <tr><td>Secrets</td><td>Ansible Vault for v1</td><td>Runtime only</td><td>Vault password and recovery copy remain outside Git</td></tr>
           </tbody>
@@ -298,14 +299,16 @@
         <article class="gate-card"><h3>Primary computers</h3><ul><li>MacBook reaches every managed node over LAN or Tailscale.</li><li>Each Linux node passes its prerequisite-only bootstrap.</li><li>ThinkCentre completes a remote clone/build/test workflow.</li><li>Dotfiles apply from a pinned external revision.</li></ul></article>
         <article class="gate-card"><h3>DNS and edge access</h3><ul><li>The dedicated Pi 2 passes direct LAN UDP and TCP queries.</li><li>Tailnet DNS stays disabled until listener, firewall, ACL, and mobile-data validation pass.</li><li>The Pi 2 fixed commands wake both wired targets directly.</li><li>The Pi 1 sentinel detects independent DNS and HTTP failures.</li></ul></article>
         <article class="gate-card"><h3>K3s baseline</h3><ul><li>ThinkPad and both Pi 3 workers return Ready after reboot.</li><li>Second provisioning run has no unexplained changes.</li><li>Smoke workload uses a verified multi-arch image.</li><li>Pi 2 remains absent until its dedicated Pi-hole workload is defined.</li></ul></article>
-        <article class="gate-card"><h3>State and recovery</h3><ul><li>Databases and pipeline metadata use named persistent paths.</li><li>Backups restore into a clean location.</li><li>Health checks exercise the real service protocol.</li><li>Recovery instructions remain available when K3s is down.</li></ul></article>
+        <article class="gate-card"><h3>State and recovery</h3><ul><li>Databases and automation metadata use named persistent paths.</li><li>Backups restore into a clean location.</li><li>Health checks exercise the real service protocol.</li><li>Recovery instructions remain available when K3s is down.</li></ul></article>
       </div>
       <div class="decisions">
         <h3>Phase 0 decisions still required</h3>
         <p>Remaining hardware and network facts, the second DNS host and DNS
         policy, access and configuration promotion, stateful service
         durability, and observability remain open. The single canonical backlog
-        is <a href="decisions/open-decisions.html">Open homelab decisions</a>.</p>
+        is <a href="decisions/open-decisions.html">Open homelab decisions</a>.
+        The push-based CI/CD model is documented in the
+        <a href="development-deployment-workflow.html">development and application deployment workflow</a>.</p>
       </div>
     </section>
 
@@ -318,8 +321,8 @@
   <script>
     const nodes = {
       macbook: { name: "MacBook Pro", role: "Operator workstation and sole Ansible controller.", access: "LAN + Tailscale; applies profiles to every managed node.", automation: "Fresh-machine bootstrap, uv-tool Ansible, and explicit workstation profile; no homelab services." },
-      thinkpad: { name: "ThinkPad · Debian", role: "Persistent infrastructure host, K3s server, database and pipeline host.", access: "LAN + Tailscale; managed from the MacBook controller.", automation: "Initial bootstrap prepares uv and Python; critical state is named, backed up, and recoverable without K3s." },
-      thinkcentre: { name: "ThinkCentre Tiny · CachyOS", role: "Always-on bare-metal remote execution node for T3 Code, Codex CLI, builds, and tests.", access: "LAN + Tailscale; remote development from the MacBook.", automation: "Project source is frequently committed and pushed to GitHub; bounded caches and explicit dotfiles profile; never a K3s node." },
+      thinkpad: { name: "ThinkPad · Debian", role: "Persistent infrastructure host, K3s server, and Docker host for databases, monitoring, and automations.", access: "LAN + Tailscale; managed from the MacBook controller.", automation: "Initial bootstrap prepares uv and Python; critical state is named, backed up, and recoverable without K3s." },
+      thinkcentre: { name: "ThinkCentre Tiny · CachyOS", role: "Always-on bare-metal remote execution node for T3 Code, Codex CLI, builds, tests, and protected production deployment jobs.", access: "LAN + Tailscale; remote development from the MacBook; purpose-scoped access to private production endpoints.", automation: "Project source is frequently committed and pushed to GitHub; the deployment runner accepts trusted jobs only; bounded caches and explicit dotfiles profile; never a K3s node." },
       rpi3a: { name: "Raspberry Pi 3 A", role: "Supported 64-bit ARM K3s worker for small services.", access: "LAN SSH from the ThinkPad; K3s traffic stays on LAN.", automation: "K3s prerequisites and agent role with architecture-aware scheduling." },
       rpi3b: { name: "Raspberry Pi 3 B", role: "Supported 64-bit ARM K3s worker for small services.", access: "LAN SSH from the ThinkPad; K3s traffic stays on LAN.", automation: "K3s prerequisites and agent role with architecture-aware scheduling." },
       rpi2: { name: "Raspberry Pi 2", role: "Single dedicated bare-metal Pi-hole resolver with Tailscale and fixed Wake-on-LAN commands as supporting edge services.", access: "Wired LAN + Tailscale; remote operators invoke fixed WoL commands directly; subnet routing is optional and disabled by default.", automation: "Keep Pi-hole local-only and Tailscale DNS acceptance off until the listener, firewall, and ACL gate is complete; keep unrelated workloads off the node and add a second supported resolver later." },
@@ -328,12 +331,12 @@
     };
 
     const phases = {
-      0: { name: "Discovery and decisions", outcomes: ["Hardware, OS, architecture, disk and power facts", "LAN names, reservations and recovery access", "Dotfiles revision promotion and tailnet policy", "Database, pipeline, backup and monitoring choices"], gate: "Every host has a documented recovery path; no planned role depends on an unknown storage or secret location." },
+      0: { name: "Discovery and decisions", outcomes: ["Hardware, OS, architecture, disk and power facts", "LAN names, reservations and recovery access", "Dotfiles revision promotion and tailnet policy", "Database, deployment identity, backup and monitoring choices"], gate: "Every host has a documented recovery path; no planned role depends on an unknown storage or secret location." },
       1: { name: "Automation foundation", outcomes: ["MacBook uv-tool Ansible and locked Python 3.14 development environment", "Global uv plus Python 3.14 pin on managed nodes", "Pinned Ansible collections and inventory", "Bootstrap, Make targets, lint and syntax checks"], gate: "Every node passes its correct bootstrap path; inventory graph and syntax checks pass; a second base-role run has no unexpected changes." },
       2: { name: "Primary computers", outcomes: ["ThinkPad becomes the persistent infrastructure host", "Tailscale on MacBook, ThinkPad, ThinkCentre, and Pi 2", "Always-on bare-metal T3 Code execution", "Frequent GitHub checkpoints for project source"], gate: "Remote access works as designed; ThinkCentre completes a clone/build/test workflow; active project branches are pushed and recoverable from GitHub." },
       3: { name: "Resilient DNS", outcomes: ["Dedicated Pi 2 deployed with Pi-hole, Tailscale, and fixed WoL commands", "LAN DNS validated before router cutover", "Tailnet DNS listener, firewall, ACL, and mobile validation completed as a separate gate", "Pi 1 sentinel validates UDP DNS, TCP DNS, and HTTP independently", "Second supported resolver selected and staged later"], gate: "The Pi 2 resolves over LAN, wakes each wired target directly, and produces independent sentinel heartbeats; tailnet DNS is enabled only after its explicit security gate; after a second resolver is added, either DNS node works alone." },
       4: { name: "K3s cluster", outcomes: ["Pinned server on ThinkPad", "Two supported Pi 3 workers", "Secure token discovery and kubeconfig handling", "Pi 2 admitted only with a dedicated Pi-hole workload and placement policy"], gate: "Baseline nodes return Ready after reboot, provisioning is idempotent, and a verified multi-arch workload lands only on compatible nodes." },
-      5: { name: "Data and pipeline platform", outcomes: ["Chosen databases and orchestrator", "Named data paths, resource limits and health checks", "Credentials from the selected secret system", "Backup and clean-location restore procedure"], gate: "Each stateful service restores successfully and passes an application-level query or test run." },
+      5: { name: "Data and application delivery", outcomes: ["Chosen Docker databases, monitoring, and automations", "GitHub Actions builds immutable application images", "Protected ThinkCentre runner deploys approved releases to K3s", "Named data paths, credentials, health checks, backups, and clean-location restore procedures"], gate: "A tested application deploys and rolls back by digest; each stateful service restores successfully and passes an application-level query or test run." },
       6: { name: "Operations and recovery", outcomes: ["Fleet-wide read-only validation", "Host, DNS, disk, backup, tailnet and cluster visibility", "Patch and pinned-version upgrade runbooks", "Recovery order and periodic drills"], gate: "A failed component can be identified and recovered using documentation and backups that do not depend on that component." }
     };
 
