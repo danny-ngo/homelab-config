@@ -60,7 +60,7 @@ Do not discard that detail. Implement the broader plan here and refer to the K3s
 | Inventory name | Hardware / OS | Primary responsibilities | Connectivity | State class |
 |---|---|---|---|---|
 | `macbook` | MacBook Pro / macOS | Main workstation, initial bootstrap origin, repository editing, operator CLI, local dotfiles | LAN + Tailscale | User data; backed up outside this repo |
-| `thinkpad` | ThinkPad / Debian | K3s server, databases, pipeline orchestration, backup coordination, optional admin entry point | LAN + Tailscale | Critical infrastructure state |
+| `thinkpad` | ThinkPad / Debian | K3s server, Docker infrastructure, restricted deployment endpoint, backup coordination, optional admin entry point | LAN + Tailscale | Critical infrastructure state |
 | `thinkcentre` | ThinkCentre Tiny / headless CachyOS | Remote T3 Code and Codex CLI execution, builds/tests, isolated workspaces and caches | LAN + Tailscale | Rebuildable workspaces plus selected caches |
 | `rpi3a` | Raspberry Pi 3 B v1.2 / 64-bit Pi OS or Debian | Normal K3s worker for small services | LAN | Rebuildable node state |
 | `rpi3b` | Raspberry Pi 3 B v1.2 / 64-bit Pi OS or Debian | Normal K3s worker for small services | LAN | Rebuildable node state |
@@ -156,7 +156,8 @@ Official install references:
 | Infrastructure databases | ThinkPad host with dedicated persistent paths | Avoid accidental scheduling on SD cards; make backups explicit |
 | Small stateless services | K3s on Pi 3 workers, optionally ThinkPad | Matches the intended lightweight cluster use |
 | Architecture-sensitive or heavier services | ThinkPad or constrained compatible nodes | Prevents invalid ARM scheduling |
-| Remote development, test, and protected deployment runner | ThinkCentre host | Isolates development workloads from persistent infrastructure services while providing a purpose-scoped private deployment path for GitHub Actions |
+| Remote development and test | ThinkCentre host | Isolates disposable development workloads from persistent infrastructure services; it holds no production runner or deployment identity |
+| Production promotion | Ephemeral GitHub-hosted runner through Tailscale | A fresh runner uses GitHub OIDC and a narrowly tagged tailnet identity to invoke only the ThinkPad's forced deployment command |
 | DNS filtering | Bare-metal Pi 2, with a second supported host to be selected | Keeps DNS independent from K3s availability |
 
 Before deploying databases, monitoring, or automation services, record the chosen products, data paths, ports, backup targets, restore commands, resource limits, and Docker Compose ownership. Do not place them in K3s by accident simply because manifests are convenient.
@@ -248,7 +249,7 @@ Inputs that must be supplied before implementing this role:
 - `k3s_server`: pinned server install, config, service, join-token source, kubeconfig handling.
 - `k3s_agent`: secure token consumption, pinned agent install, labels/taints, service.
 - `database_host`: persistent data directories and chosen database services after product decisions.
-- `deployment_runner`: protected GitHub Actions runner and purpose-scoped private deployment credentials after its security gates are defined.
+- `deployment_endpoint`: restricted ThinkPad OpenSSH identity, forced command, application allowlist, and namespace-scoped K3s credentials after its security gates are defined.
 - `backup_client` / `backup_controller`: backup jobs, retention, restore validation.
 - `observability_agent`: host and service health once the monitoring target is chosen.
 
@@ -339,13 +340,18 @@ remains absent from all worker groups.
 Deliver:
 
 - selected database, monitoring, and automation services in Docker on ThinkPad;
-- GitHub Actions application builds and a protected deployment runner on the ThinkCentre;
+- GitHub Actions application builds and an ephemeral GitHub-hosted production
+  runner using Tailscale workload identity;
+- a restricted ThinkPad OpenSSH forced command backed by namespace-scoped K3s
+  deployment identities;
 - named volumes/paths, resource limits, health checks, and version pins;
 - credentials from the chosen secret system;
 - backup and tested restore procedure;
 - documented client endpoints over LAN/Tailscale as appropriate.
 
-Gate: each stateful service restores into a clean test location and passes an application-level query, not just a process check.
+Gate: an ephemeral runner can deploy and roll back a verified image digest only
+through the restricted endpoint; each stateful service restores into a clean
+test location and passes an application-level query, not just a process check.
 
 ### Phase 6 — Operations and recovery
 
@@ -501,7 +507,8 @@ The broadened homelab baseline is complete when:
   absent from every K3s worker group;
 - the 8 GB Pi 1 probe and 32 GB Pi 1 sentinel remain stateless and recoverable
   from their purpose-specific profiles;
-- databases and pipeline orchestration have named state, health checks, backups, and tested restores;
+- databases, monitoring, and automation services have named state, health
+  checks, backups, and tested restores;
 - validation and recovery runbooks do not depend on the component they are meant to recover;
 - a second full stable playbook run reports no unexplained changes;
 - no sensitive value exists in repository history or generated documentation.
