@@ -154,13 +154,12 @@ Official install references:
 | Ansible control and scheduled maintenance | MacBook workstation | The controller is rebuilt from Homebrew, uv, the repository, and its lockfiles |
 | K3s control plane and default SQLite datastore | ThinkPad host | Simple single-server cluster for v1 |
 | Infrastructure databases | ThinkPad host with dedicated persistent paths | Avoid accidental scheduling on SD cards; make backups explicit |
-| Pipeline orchestration control service | ThinkPad host initially | Keeps orchestration state on the managed infrastructure node |
 | Small stateless services | K3s on Pi 3 workers, optionally ThinkPad | Matches the intended lightweight cluster use |
 | Architecture-sensitive or heavier services | ThinkPad or constrained compatible nodes | Prevents invalid ARM scheduling |
-| Remote development and agent execution | ThinkCentre host | Isolates development workloads from persistent infrastructure services |
+| Remote development, test, and protected deployment runner | ThinkCentre host | Isolates development workloads from persistent infrastructure services while providing a purpose-scoped private deployment path for GitHub Actions |
 | DNS filtering | Bare-metal Pi 2, with a second supported host to be selected | Keeps DNS independent from K3s availability |
 
-Before deploying databases or the pipeline orchestrator, record the chosen products, data paths, ports, backup targets, restore commands, resource limits, and whether they run as systemd services or rootless containers. Do not place them in K3s by accident simply because manifests are convenient.
+Before deploying databases, monitoring, or automation services, record the chosen products, data paths, ports, backup targets, restore commands, resource limits, and Docker Compose ownership. Do not place them in K3s by accident simply because manifests are convenient.
 
 ## 8. Ansible Inventory Model
 
@@ -249,7 +248,7 @@ Inputs that must be supplied before implementing this role:
 - `k3s_server`: pinned server install, config, service, join-token source, kubeconfig handling.
 - `k3s_agent`: secure token consumption, pinned agent install, labels/taints, service.
 - `database_host`: persistent data directories and chosen database services after product decisions.
-- `pipeline_orchestrator`: chosen orchestration service after product decisions.
+- `deployment_runner`: protected GitHub Actions runner and purpose-scoped private deployment credentials after its security gates are defined.
 - `backup_client` / `backup_controller`: backup jobs, retention, restore validation.
 - `observability_agent`: host and service health once the monitoring target is chosen.
 
@@ -262,7 +261,7 @@ Inputs that must be supplied before implementing this role:
 - `execution-node.yml`: ThinkCentre development runner.
 - `dns.yml`: staged Pi-hole deployment and validation.
 - `k3s.yml`: prerequisites, server, supported workers, and baseline validation.
-- `data-platform.yml`: databases and pipeline orchestration after decisions are recorded.
+- `data-platform.yml`: databases, monitoring, and automation services after decisions are recorded.
 - `backup.yml`: backup setup and restore probes.
 - `site.yml`: ordered composition of stable playbooks, with disruptive actions excluded by default.
 - `validate.yml`: read-only fleet, DNS, Tailscale, service, storage, and cluster checks.
@@ -278,7 +277,7 @@ Deliver:
 - disk and power assessment, especially SD-card health;
 - dotfiles integration contract;
 - secret-management choice;
-- database, pipeline orchestrator, backup target, and observability decisions;
+- database, deployment identity, backup target, and observability decisions;
 - current recovery access for every machine.
 
 Gate: all hosts can be reached by at least one documented recovery method, and no role depends on an unknown storage or secret location.
@@ -335,11 +334,12 @@ Gate: ThinkPad and both Pi 3 nodes remain `Ready` after reboot; a second run is
 idempotent; the sample workload lands only on compatible nodes; and the Pi 2
 remains absent from all worker groups.
 
-### Phase 5 — Data and pipeline platform
+### Phase 5 — Data and application delivery
 
 Deliver:
 
-- selected databases and pipeline orchestrator on ThinkPad;
+- selected database, monitoring, and automation services in Docker on ThinkPad;
+- GitHub Actions application builds and a protected deployment runner on the ThinkCentre;
 - named volumes/paths, resource limits, health checks, and version pins;
 - credentials from the chosen secret system;
 - backup and tested restore procedure;

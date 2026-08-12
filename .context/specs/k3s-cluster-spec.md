@@ -54,7 +54,7 @@ The automation must:
 - Running Pi-hole in K3s.
 - Public ingress, public API exposure, automated TLS, or an external load balancer.
 - Selecting the long-term ingress, storage, observability, or GitOps products.
-- Moving the ThinkPad's databases or pipeline orchestrator into K3s.
+- Moving the ThinkPad's Docker infrastructure services into K3s.
 - Reconfiguring the router or tailnet.
 
 ## 4. Fixed Fleet Membership

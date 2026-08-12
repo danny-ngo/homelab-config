@@ -6,7 +6,7 @@ title: Open homelab decisions
 # Open homelab decisions
 
 - Status: active backlog
-- Last consolidated: 2026-07-31
+- Last consolidated: 2026-08-11
 
 This is the canonical list of operator decisions that remain open. Accepted
 architecture decisions are not repeated here.
@@ -41,7 +41,7 @@ architecture decisions are not repeated here.
 | Decision or input | Required outcome | Blocks |
 | --- | --- | --- |
 | Select required databases | Products, image/version pins, ports, resource budgets, data ownership, credentials, and health checks | Phase 5 data platform |
-| Select the pipeline orchestrator | Product, execution model, state, credentials, and recovery expectations | Phase 5 pipeline platform |
+| Finalize production deployment identities | Purpose-scoped K3s service accounts, restricted Docker deployment SSH path, runner scope, credential storage, and revocation procedure | Automated production deployment |
 | Choose backup architecture | Repository target, retention, encryption, off-machine/off-site copy, and clean-location restore test | Stateful production services |
 | Decide the ThinkCentre non-Git work policy | Encrypted backup, trusted synchronization, or a strict prohibition on unique local work | Execution-node durability |
 | Select observability and notifications | Monitoring target, alert ownership, and destination | Phase 6 operations |
@@ -57,6 +57,11 @@ architecture decisions are not repeated here.
   listener, firewall, and tailnet policy above. The Pi-hole deployment form
   remains reopened.
 - The MacBook is the Ansible controller.
+- GitHub Actions is the CI/CD orchestrator. Portable CI runs on GitHub-hosted
+  runners; trusted production jobs use a protected deployment runner on the
+  ThinkCentre to reach the private K3s API or an explicitly restricted Docker
+  deployment path. See the
+  [development and application deployment workflow](../development-deployment-workflow.md).
 - The remote macOS installer bootstraps Homebrew and the checkout; local
   bootstrap then installs uv, uv-managed Python 3.14, and uv-tool Ansible.
   Ansible is not a Homebrew package.

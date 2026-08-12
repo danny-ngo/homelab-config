@@ -339,7 +339,7 @@ findmnt -no TARGET,FSTYPE,OPTIONS /mnt/boot</code></pre>
               <h3>Install the bootstrap system</h3>
               <pre><code>pacstrap -K /mnt \
   base base-devel linux-lts linux-firmware intel-ucode \
-  git openssh sudo vim curl ca-certificates iwd \
+  git openssh sudo nano curl ca-certificates iwd \
   man-db man-pages texinfo</code></pre>
               <p>For an AMD ThinkCentre, replace <code>intel-ucode</code> with <code>amd-ucode</code>. The CachyOS package layer is added only after a known-good Arch LTS boot.</p>
             </li>
