@@ -6,7 +6,7 @@ title: Open homelab decisions
 # Open homelab decisions
 
 - Status: active backlog
-- Last consolidated: 2026-08-11
+- Last consolidated: 2026-08-12
 
 This is the canonical list of operator decisions that remain open. Accepted
 architecture decisions are not repeated here.
@@ -41,7 +41,7 @@ architecture decisions are not repeated here.
 | Decision or input | Required outcome | Blocks |
 | --- | --- | --- |
 | Select required databases | Products, image/version pins, ports, resource budgets, data ownership, credentials, and health checks | Phase 5 data platform |
-| Finalize production deployment identities | Purpose-scoped K3s service accounts, restricted Docker deployment SSH path, runner scope, credential storage, and revocation procedure | Automated production deployment |
+| Finalize production deployment identities | Private deployment repository, GitHub-to-Tailscale workload identity, `tag:github-deploy` destination rule, restricted OpenSSH forced command, purpose-scoped K3s identity, credential rotation, and revocation procedure | Automated production deployment |
 | Choose backup architecture | Repository target, retention, encryption, off-machine/off-site copy, and clean-location restore test | Stateful production services |
 | Decide the ThinkCentre non-Git work policy | Encrypted backup, trusted synchronization, or a strict prohibition on unique local work | Execution-node durability |
 | Select observability and notifications | Monitoring target, alert ownership, and destination | Phase 6 operations |
@@ -58,9 +58,11 @@ architecture decisions are not repeated here.
   remains reopened.
 - The MacBook is the Ansible controller.
 - GitHub Actions is the CI/CD orchestrator. Portable CI runs on GitHub-hosted
-  runners; trusted production jobs use a protected deployment runner on the
-  ThinkCentre to reach the private K3s API or an explicitly restricted Docker
-  deployment path. See the
+  runners. Production promotion also uses a fresh GitHub-hosted runner, which
+  joins the tailnet ephemerally through GitHub OIDC and invokes only a restricted
+  OpenSSH forced command on the ThinkPad. Neither the public infrastructure
+  repository nor the development-focused ThinkCentre receives a persistent
+  production runner. See the
   [development and application deployment workflow](../development-deployment-workflow.md).
 - The remote macOS installer bootstraps Homebrew and the checkout; local
   bootstrap then installs uv, uv-managed Python 3.14, and uv-tool Ansible.

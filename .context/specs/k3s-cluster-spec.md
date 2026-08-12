@@ -77,7 +77,9 @@ Hostnames are illustrative inventory identifiers. Role assignment must never dep
 - Expected CPU: Intel Core i5-8250U, `x86_64` / `amd64`.
 - Expected OS: supported Debian release using systemd.
 - Uses persistent local storage for K3s server state.
-- Also hosts databases and pipeline orchestration in later phases, so K3s must have explicit resource headroom and must not consume the host without limits.
+- Also hosts Docker databases, monitoring, and automation services in later
+  phases, so K3s must have explicit resource headroom and must not consume the
+  host without limits.
 - Starts with K3s's default single-server datastore unless a separate architecture decision explicitly selects another supported datastore.
 
 ### Raspberry Pi 3 workers
@@ -319,7 +321,8 @@ Do not define a plaintext `k3s_token` in normal inventory examples.
 - Treat SSH and sudo access to the ThinkPad as cluster-administrator access.
 - Prefer trusted multi-architecture images, pinned tags, and digests where practical.
 - Do not use unofficial images solely to make a weak architecture work.
-- Monitor ThinkPad capacity so K3s, databases, and pipeline orchestration cannot silently starve one another.
+- Monitor ThinkPad capacity so K3s, databases, monitoring, and automation
+  services cannot silently starve one another.
 - Back up the K3s server token, configuration, and datastore through the parent plan's backup system.
 
 ## 12. Raspberry Pi 2 Exclusion Contract
