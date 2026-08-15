@@ -128,6 +128,50 @@ class DocumentationTests(unittest.TestCase):
             guides["thinkcentre-arch-cachyos-maintenance.html"],
         )
 
+    def test_thinkpad_guides_match_the_infrastructure_contract(self):
+        guides = {
+            name: (DOCS / name).read_text()
+            for name in (
+                "thinkpad-debian-infrastructure-setup.html",
+                "thinkpad-debian-infrastructure-maintenance.html",
+            )
+        }
+
+        for name, text in guides.items():
+            with self.subTest(name=name):
+                self.assertIn("Debian 13", text)
+                self.assertIn("/opt/infra/containers", text)
+                self.assertIn("/srv/infra/data", text)
+                self.assertNotIn("/srv/infra/containers", text)
+                self.assertIn("/var/lib/rancher/k3s/server/token", text)
+                self.assertIn("Tailscale SSH", text)
+                self.assertIn("thinkpad-debian-infrastructure-", text)
+
+        setup = guides["thinkpad-debian-infrastructure-setup.html"]
+        self.assertIn("./bootstrap.sh --profile infra", setup)
+        self.assertIn("make validate LIMIT=thinkpad", setup)
+        self.assertIn("HandleLidSwitch=ignore", setup)
+        self.assertIn("HandleLidSwitchExternalPower=ignore", setup)
+        self.assertIn("HandleLidSwitchDocked=ignore", setup)
+        self.assertIn("No production-state shortcut", setup)
+
+        maintenance = guides["thinkpad-debian-infrastructure-maintenance.html"]
+        self.assertIn("sudo apt full-upgrade", maintenance)
+        self.assertIn("make k3s LIMIT=thinkpad", maintenance)
+        self.assertIn("Never use <code>--volumes</code>", maintenance)
+        self.assertIn("clean-location restore", maintenance)
+
+    def test_infrastructure_definitions_are_separate_from_persistent_data(self):
+        text = "\n".join(
+            path.read_text()
+            for path in DOCS.rglob("*")
+            if path.suffix in {".md", ".html"}
+        )
+
+        self.assertIn("/opt/infra/containers", text)
+        self.assertIn("/srv/infra/data", text)
+        self.assertNotIn("/srv/infra/containers", text)
+
 
 if __name__ == "__main__":
     unittest.main()

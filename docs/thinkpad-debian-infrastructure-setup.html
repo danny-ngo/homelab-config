@@ -1,0 +1,436 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <meta name="description" content="Setup guide for the Debian 13 ThinkPad infrastructure host, Docker host, and single K3s server in the homelab-config repository.">
+  <title>ThinkPad · Debian 13 Infrastructure Setup Guide</title>
+  <style>
+    :root {
+      --bg: #f5f2eb;
+      --paper: #fffdf8;
+      --ink: #17201d;
+      --muted: #66706b;
+      --line: #d9d8cf;
+      --soft: #eceae2;
+      --accent: #0c7358;
+      --accent-soft: #dcefe7;
+      --blue: #245f87;
+      --blue-soft: #e1edf5;
+      --amber: #8a5a08;
+      --amber-soft: #f7ecd2;
+      --red: #963f35;
+      --red-soft: #f5e1dd;
+      --code: #14221d;
+      --code-ink: #e9f4ef;
+      color-scheme: light;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: var(--bg);
+      color: var(--ink);
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #111714;
+        --paper: #17201c;
+        --ink: #edf3ef;
+        --muted: #a4b0a9;
+        --line: #34413b;
+        --soft: #202b26;
+        --accent: #73d6b3;
+        --accent-soft: #163c31;
+        --blue: #8fc7ee;
+        --blue-soft: #193448;
+        --amber: #f0c66c;
+        --amber-soft: #413316;
+        --red: #f19c90;
+        --red-soft: #482723;
+        --code: #09110e;
+        --code-ink: #dcf0e7;
+        color-scheme: dark;
+      }
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; scroll-padding-top: 1.5rem; }
+    body { margin: 0; background: var(--bg); color: var(--ink); }
+    a { color: var(--blue); text-underline-offset: .18em; }
+    a:hover { text-decoration-thickness: 2px; }
+    a:focus-visible, summary:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
+    code, pre { font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace; }
+    code { font-size: .92em; }
+    :not(pre) > code { background: var(--soft); border-radius: .3rem; padding: .1em .34em; }
+    pre { margin: .85rem 0 0; padding: 1rem 1.1rem; border-radius: .7rem; overflow-x: auto; background: var(--code); color: var(--code-ink); font-size: .82rem; line-height: 1.55; box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--code-ink) 10%, transparent); }
+    .page { width: min(1320px, 100%); margin: 0 auto; padding: 2rem clamp(1rem, 3vw, 2.5rem) 5rem; }
+    .masthead { border-bottom: 1px solid var(--line); padding: 2.5rem 0 2rem; }
+    .kicker, .section-label, dt, th { font-size: .74rem; line-height: 1.3; font-weight: 750; letter-spacing: .09em; text-transform: uppercase; }
+    .kicker { color: var(--accent); margin: 0 0 .8rem; }
+    h1 { max-width: 14ch; margin: 0; font-size: clamp(2.4rem, 7vw, 5.5rem); line-height: .96; letter-spacing: -.065em; font-weight: 760; }
+    .lede { max-width: 72ch; margin: 1.35rem 0 0; color: var(--muted); font-size: clamp(1rem, 2vw, 1.2rem); line-height: 1.65; }
+    .meta { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: 1.4rem; }
+    .pill { display: inline-flex; align-items: center; gap: .42rem; padding: .38rem .68rem; border: 1px solid var(--line); border-radius: 999px; background: var(--paper); font-size: .8rem; }
+    .pill::before { content: ""; width: .48rem; height: .48rem; border-radius: 50%; background: var(--accent); }
+    .summary { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .75rem; margin: 1.25rem 0 2rem; }
+    .summary article { border: 1px solid var(--line); border-radius: .8rem; padding: .9rem; background: var(--paper); }
+    .summary span { display: block; color: var(--muted); font-size: .76rem; }
+    .summary strong { display: block; margin-top: .3rem; font-size: 1rem; line-height: 1.3; }
+    .layout { display: grid; grid-template-columns: 255px minmax(0, 1fr); gap: clamp(1.5rem, 4vw, 4rem); align-items: start; }
+    .toc { position: sticky; top: 1rem; border: 1px solid var(--line); border-radius: .8rem; background: var(--paper); padding: 1rem; }
+    .toc p { margin: 0 0 .7rem; }
+    .toc ol { list-style: none; padding: 0; margin: 0; counter-reset: toc; }
+    .toc li { counter-increment: toc; border-top: 1px solid var(--line); }
+    .toc li:first-child { border-top: 0; }
+    .toc a { display: grid; grid-template-columns: 1.6rem 1fr; gap: .25rem; padding: .55rem 0; color: var(--ink); text-decoration: none; font-size: .82rem; line-height: 1.3; }
+    .toc a::before { content: counter(toc, decimal-leading-zero); color: var(--muted); font-variant-numeric: tabular-nums; }
+    .toc .runbook { margin-top: .8rem; display: block; padding: .65rem .75rem; border-radius: .55rem; background: var(--accent); color: #fff; text-align: center; font-weight: 700; text-decoration: none; }
+    main { min-width: 0; }
+    section { padding: 2rem 0; border-bottom: 1px solid var(--line); }
+    section:last-child { border-bottom: 0; }
+    h2 { margin: 0; font-size: clamp(1.55rem, 3vw, 2.35rem); letter-spacing: -.04em; line-height: 1.08; }
+    h3 { margin: 1.6rem 0 .35rem; font-size: 1.08rem; letter-spacing: -.015em; }
+    p, li { line-height: 1.62; }
+    p { margin: .65rem 0 0; }
+    ul, ol { padding-left: 1.25rem; }
+    li + li { margin-top: .3rem; }
+    .section-intro { max-width: 72ch; color: var(--muted); }
+    .callout { margin-top: 1rem; border-left: 4px solid var(--blue); border-radius: .2rem .65rem .65rem .2rem; padding: .85rem 1rem; background: var(--blue-soft); }
+    .callout strong { display: block; margin-bottom: .2rem; }
+    .callout.warning { border-color: var(--amber); background: var(--amber-soft); }
+    .callout.danger { border-color: var(--red); background: var(--red-soft); }
+    .callout.success { border-color: var(--accent); background: var(--accent-soft); }
+    .steps { list-style: none; counter-reset: step; padding: 0; margin: 1.25rem 0 0; }
+    .steps > li { counter-increment: step; position: relative; margin: 0; padding: 0 0 1.45rem 3.1rem; }
+    .steps > li::before { content: counter(step); position: absolute; left: 0; top: -.15rem; width: 2.1rem; height: 2.1rem; display: grid; place-items: center; border-radius: 50%; background: var(--accent); color: #fff; font-weight: 800; font-size: .82rem; }
+    .steps > li::after { content: ""; position: absolute; left: 1.02rem; top: 2rem; bottom: 0; width: 1px; background: var(--line); }
+    .steps > li:last-child::after { display: none; }
+    .steps h3 { margin: 0 0 .25rem; }
+    .grid-2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .8rem; margin-top: 1rem; }
+    .card { border: 1px solid var(--line); border-radius: .75rem; background: var(--paper); padding: 1rem; }
+    .card h3 { margin: 0; }
+    .card p { color: var(--muted); font-size: .9rem; }
+    dl { display: grid; grid-template-columns: 10rem minmax(0, 1fr); margin: 1rem 0 0; border-top: 1px solid var(--line); }
+    dt, dd { margin: 0; padding: .72rem 0; border-bottom: 1px solid var(--line); }
+    dt { color: var(--muted); }
+    dd { padding-left: 1rem; line-height: 1.5; }
+    table { width: 100%; border-collapse: collapse; margin-top: 1rem; }
+    th, td { padding: .75rem .65rem; text-align: left; vertical-align: top; border-bottom: 1px solid var(--line); }
+    th { color: var(--muted); }
+    td { font-size: .9rem; line-height: 1.45; }
+    details { margin-top: .8rem; border: 1px solid var(--line); border-radius: .65rem; background: var(--paper); }
+    summary { cursor: pointer; padding: .8rem 1rem; font-weight: 750; }
+    details > div { padding: 0 1rem 1rem; }
+    .checklist { list-style: none; padding: 0; margin: 1rem 0 0; }
+    .checklist li { position: relative; padding: .58rem .75rem .58rem 2.35rem; border-top: 1px solid var(--line); }
+    .checklist li::before { content: "□"; position: absolute; left: .65rem; color: var(--accent); font-size: 1.2rem; line-height: 1.2; }
+    .checklist li:last-child { border-bottom: 1px solid var(--line); }
+    .source-list { columns: 2; column-gap: 2rem; }
+    .source-list li { break-inside: avoid; margin-bottom: .45rem; }
+    footer { display: flex; flex-wrap: wrap; justify-content: space-between; gap: .75rem; padding-top: 1.5rem; color: var(--muted); font-size: .8rem; }
+    @media (max-width: 900px) {
+      .summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .layout { grid-template-columns: 1fr; }
+      .toc { position: static; }
+      .toc ol { columns: 2; column-gap: 1.5rem; }
+      .toc li { break-inside: avoid; }
+    }
+    @media (max-width: 620px) {
+      .page { padding-inline: .85rem; }
+      .summary, .grid-2 { grid-template-columns: 1fr; }
+      .toc ol, .source-list { columns: 1; }
+      dl { grid-template-columns: 1fr; }
+      dt { border-bottom: 0; padding-bottom: 0; }
+      dd { padding-left: 0; }
+      table, tbody, tr, td { display: block; }
+      thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+      tr { padding: .5rem 0; border-bottom: 1px solid var(--line); }
+      td { border: 0; padding: .3rem 0; }
+      .steps > li { padding-left: 2.7rem; }
+    }
+    @media print {
+      :root { --bg: #fff; --paper: #fff; --ink: #000; --muted: #444; --line: #bbb; --soft: #eee; --code: #f3f3f3; --code-ink: #000; color-scheme: light; }
+      @page { margin: 14mm; }
+      .page { width: auto; padding: 0; }
+      .masthead { padding-top: 0; }
+      .layout { display: block; }
+      .toc { position: static; margin: 1rem 0; }
+      .toc .runbook { display: none; }
+      section { break-inside: auto; }
+      pre, .card, .callout, details { break-inside: avoid; box-shadow: none; }
+      a { color: #000; text-decoration: none; }
+      a[href^="http"]::after { content: " (" attr(href) ")"; font-size: .72em; overflow-wrap: anywhere; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <header class="masthead">
+      <p class="kicker">ThinkPad · persistent infrastructure · reviewed 15 August 2026</p>
+      <h1>Debian 13 infrastructure setup guide</h1>
+      <p class="lede">A start-to-finish build for the homelab’s stateful production host: minimal Debian, stable wired identity, recoverable remote access, repository-managed Docker and K3s, explicit data paths, and a handoff that refuses production state until backup choices are real.</p>
+      <div class="meta" aria-label="Guide properties">
+        <span class="pill">Debian 13 stable</span><span class="pill">amd64 · UEFI</span>
+        <span class="pill">MacBook-managed</span><span class="pill">LAN + Tailscale</span>
+      </div>
+    </header>
+
+    <div class="summary" aria-label="Target architecture">
+      <article><span>Host role</span><strong>Persistent infrastructure</strong></article>
+      <article><span>Container layer</span><strong>Debian-native Docker</strong></article>
+      <article><span>Cluster role</span><strong>Single K3s server</strong></article>
+      <article><span>State roots</span><strong>/srv + K3s datastore</strong></article>
+    </div>
+
+    <div class="layout">
+      <aside class="toc" aria-label="Table of contents">
+        <p class="section-label">Setup path</p>
+        <ol>
+          <li><a href="#design">Target design</a></li><li><a href="#gates">Decisions and gates</a></li>
+          <li><a href="#prepare">Prepare hardware</a></li><li><a href="#install">Install Debian</a></li>
+          <li><a href="#firstboot">First boot</a></li><li><a href="#laptop">Laptop power behavior</a></li>
+          <li><a href="#bootstrap">Prepare the managed node</a></li><li><a href="#inventory">Prepare inventory</a></li>
+          <li><a href="#apply">Apply the infra profile</a></li><li><a href="#k3s">Converge K3s</a></li>
+          <li><a href="#state">Protect persistent state</a></li><li><a href="#validate">Validate and hand off</a></li>
+        </ol>
+        <a class="runbook" href="thinkpad-debian-infrastructure-maintenance.html">Open maintenance runbook →</a>
+      </aside>
+
+      <main>
+        <section id="design">
+          <p class="section-label">01 · Target design</p>
+          <h2>Know what this machine owns</h2>
+          <p class="section-intro">The ThinkPad is a managed production target, not an Ansible controller or a general-purpose workstation. The MacBook owns provisioning. The ThinkCentre owns disposable development. This host owns durable runtime state.</p>
+          <dl>
+            <dt>Hardware</dt><dd>ThinkPad with an Intel Core i5-8250U-class x86_64 CPU, SSD storage, working battery, and wired Ethernet for steady-state service.</dd>
+            <dt>Operating system</dt><dd>Debian 13 “trixie” amd64, minimal server installation, systemd, distribution kernel, no graphical desktop.</dd>
+            <dt>Network</dt><dd>Stable router reservation for the wired interface. K3s server and worker traffic use the LAN address. Tailscale provides private remote management and does not replace the LAN cluster endpoint.</dd>
+            <dt>Docker</dt><dd>Debian’s <code>docker.io</code>, <code>docker-cli</code>, and <code>docker-compose</code> packages. Definitions live beneath <code>/opt/infra/containers</code>; persistent application data lives beneath <code>/srv/infra/data</code>.</dd>
+            <dt>K3s</dt><dd>One checksum-pinned server binary, default single-server SQLite datastore, and configuration managed by this repository. Pi 3 workers join later over the LAN.</dd>
+            <dt>Administration</dt><dd>Normal access is SSH from the MacBook with strict host-key checking. Tailscale SSH is disabled. Helm administration normally runs from the MacBook with protected, purpose-scoped credentials.</dd>
+          </dl>
+          <div class="callout danger"><strong>This is a destructive installation.</strong> The Debian installer may erase the selected disk. Verify the disk model, serial, capacity, and backup before changing a partition table.</div>
+        </section>
+
+        <section id="gates">
+          <p class="section-label">02 · Before mutation</p>
+          <h2>Resolve decisions automation cannot make safely</h2>
+          <p class="section-intro">The repository intentionally leaves production storage and backup targets site-specific. Record these choices outside the machine before installing any stateful service.</p>
+          <table>
+            <thead><tr><th>Decision</th><th>Recommended setup posture</th><th>Gate</th></tr></thead>
+            <tbody>
+              <tr><td>Disk encryption</td><td>Use guided encrypted LVM if physical theft is in scope and someone can unlock the machine after an unattended reboot. Otherwise document why an always-on server uses unencrypted root and protect secrets at rest separately.</td><td>Recovery and reboot behavior are understood and tested.</td></tr>
+              <tr><td>Filesystem layout</td><td>Keep the initial layout simple. Root needs headroom for images, K3s, APT, and logs. Add a separate data device only through <code>storage_mounts</code>.</td><td>Every device uses a stable UUID or mapper path, never an assumed device name.</td></tr>
+              <tr><td>Backup destination</td><td>Choose encrypted off-host storage, retention, notification, and restore ownership. The laptop’s battery is not a backup.</td><td>A clean-location restore succeeds before production data is admitted.</td></tr>
+              <tr><td>Recovery access</td><td>Keep local console and SSH key access. Disable SSH passwords only after both are proved.</td><td><code>ssh_recovery_access_confirmed</code> remains false until the second path works.</td></tr>
+              <tr><td>Secure Boot</td><td>Either keep the Debian-supported boot path enabled or document a deliberate exception. Do not copy the ThinkCentre’s firmware choice automatically.</td><td>The installed kernel boots after firmware and package updates.</td></tr>
+            </tbody>
+          </table>
+          <div class="callout warning"><strong>No production-state shortcut.</strong> Until the backup architecture in <a href="decisions/open-decisions.md">open decisions</a> is closed and tested, install the platform but do not place irreplaceable databases, automation metadata, or sole-copy credentials beneath <code>/srv</code>.</div>
+        </section>
+
+        <section id="prepare">
+          <p class="section-label">03 · Hardware and media</p>
+          <h2>Prepare a recoverable installation</h2>
+          <ol class="steps">
+            <li><h3>Record the hardware identity</h3><p>Capture the exact ThinkPad model, serial, firmware revision, CPU, RAM, storage model and health, battery health, wired NIC and MAC address. Keep the record with recovery notes, not only on the laptop.</p></li>
+            <li><h3>Update and configure firmware</h3><ul><li>Use UEFI boot; disable legacy/CSM mode.</li><li>Enable CPU virtualization and IOMMU features.</li><li>Enable Wake-on-LAN and wired link in the intended sleep/off state.</li><li>Set power-on-after-AC-loss behavior for an infrastructure host.</li><li>Keep USB boot available and record any Secure Boot change.</li></ul></li>
+            <li><h3>Create trusted Debian media</h3><p>Download the current Debian 13 amd64 netinst image and matching checksum/signature from Debian. Verify it before writing the USB. Keep the installer and a known-good Ethernet adapter as recovery media.</p></li>
+            <li><h3>Reserve the network identity</h3><p>Plan hostname <code>thinkpad</code>. Create a router reservation for the wired MAC and record its address as <code>THINKPAD_LAN_IP</code>. Confirm the LAN, K3s pod, and K3s service CIDRs do not overlap.</p></li>
+          </ol>
+          <div class="grid-2">
+            <article class="card"><h3>At the machine</h3><p>Debian USB, Ethernet, AC power, local display/keyboard access, firmware password if configured, and the verified administrator SSH public key.</p></article>
+            <article class="card"><h3>On the MacBook</h3><p>Current repository checkout, encrypted production inventory, Vault password source, verified backup destination, and router and Tailscale administration.</p></article>
+          </div>
+        </section>
+
+        <section id="install">
+          <p class="section-label">04 · Debian installer</p>
+          <h2>Install a minimal Debian 13 server</h2>
+          <ol class="steps">
+            <li><h3>Boot the installer in UEFI mode</h3><p>Select the UEFI entry for the USB. Confirm wired networking and the SSD are detected; stop if the target disk is ambiguous.</p></li>
+            <li><h3>Set identity and locale</h3><p>Use hostname <code>thinkpad</code>, leave the DNS domain blank unless the production local domain already operates, and select <code>America/Toronto</code>. Leave the root password blank so Debian disables direct root login and grants the first account sudo access, then create administrator account <code>homelab</code>.</p></li>
+            <li><h3>Partition deliberately</h3><p>Choose the recorded storage design. Guided partitioning with one root filesystem is the simplest recovery path; guided encrypted LVM is appropriate only with an accepted console-unlock plan. Review the final table before approving writes.</p></li>
+            <li><h3>Select only server tasks</h3><p>Install <strong>SSH server</strong> and <strong>standard system utilities</strong>. Deselect every desktop environment and web server. Use Debian’s default bootloader path on the selected internal disk.</p></li>
+            <li><h3>Capture the first boot</h3><p>Remove the USB, boot from disk, unlock encryption if selected, and log in locally. Confirm identity, storage, time, network, and UEFI mode.</p><pre><code>hostnamectl
+cat /etc/os-release
+uname -m
+findmnt /
+timedatectl
+ip -brief address
+[ -d /sys/firmware/efi ] &amp;&amp; echo UEFI</code></pre></li>
+          </ol>
+        </section>
+
+        <section id="firstboot">
+          <p class="section-label">05 · First boot</p>
+          <h2>Patch, identify, and prove remote access</h2>
+          <pre><code>sudo apt update
+sudo apt full-upgrade
+sudo systemctl reboot</code></pre>
+          <p>After reboot, install the small diagnostic set needed before automation and inspect the host:</p>
+          <pre><code>sudo apt install --yes ca-certificates curl git openssh-server pciutils usbutils
+systemctl --failed
+systemctl is-enabled ssh
+systemctl is-active ssh
+lsblk -o NAME,MODEL,SERIAL,SIZE,FSTYPE,FSVER,MOUNTPOINTS
+findmnt --verify
+journalctl -b -p err --no-pager</code></pre>
+          <h3>Trust the host key through the console</h3>
+          <p>Display the ED25519 host-key fingerprint at the ThinkPad console, compare it when connecting from the MacBook, and add the verified key. Do not learn a persistent infrastructure host key with blind <code>accept-new</code>.</p>
+          <pre><code>sudo ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub</code></pre>
+          <p>From the MacBook, prove key authentication in a second session, then validate sudo interactively. Debian’s normal sudo policy asks for the <code>homelab</code> password.</p>
+          <pre><code>ssh homelab@THINKPAD_LAN_IP
+ssh homelab@THINKPAD_LAN_IP 'hostname; id'
+ssh -t homelab@THINKPAD_LAN_IP 'sudo -v &amp;&amp; sudo id'</code></pre>
+          <div class="callout"><strong>Keep the console session available.</strong> Do not close the only working path until a fresh SSH connection succeeds and production inventory points at the reserved address.</div>
+        </section>
+
+        <section id="laptop">
+          <p class="section-label">06 · Laptop-specific behavior</p>
+          <h2>Make the lid and battery boring</h2>
+          <p class="section-intro">A closed lid must not suspend an infrastructure server. The battery provides short ride-through, but it also needs monitoring and is not an indefinite UPS.</p>
+          <ol class="steps">
+            <li><h3>Activate it during one-line preparation</h3><p>The Linux preparation one-liner detects the ThinkPad lid switch, installs <code>/etc/systemd/logind.conf.d/60-homelab-lid.conf</code> with <code>HandleLidSwitch=ignore</code>, <code>HandleLidSwitchExternalPower=ignore</code>, and <code>HandleLidSwitchDocked=ignore</code>, then safely reloads <code>systemd-logind</code>. Wait for the message <code>Lid-close ignore policy is active; the lid can now be closed.</code> before putting the ThinkPad away. The infrastructure role owns the same file afterward and keeps the policy persistent.</p></li>
+            <li><h3>Inspect the effective policy</h3><pre><code>systemd-analyze cat-config systemd/logind.conf
+busctl get-property org.freedesktop.login1 /org/freedesktop/login1 org.freedesktop.login1.Manager HandleLidSwitch
+busctl get-property org.freedesktop.login1 /org/freedesktop/login1 org.freedesktop.login1.Manager HandleLidSwitchExternalPower
+busctl get-property org.freedesktop.login1 /org/freedesktop/login1 org.freedesktop.login1.Manager HandleLidSwitchDocked</code></pre><p>All three properties must report <code>ignore</code>. A desktop or power daemon can hold a lid inhibitor lock, but the minimal server installation deliberately has no desktop power manager.</p></li>
+            <li><h3>Validate real behavior</h3><p>Start a continuous ping from another LAN machine, close the lid on AC power for several minutes, and confirm SSH, Docker, and K3s stay reachable. Repeat after any systemd or firmware change. Keep vents unobstructed.</p></li>
+            <li><h3>Record power signals</h3><pre><code>upower -e 2&gt;/dev/null || true
+cat /sys/class/power_supply/BAT*/capacity 2&gt;/dev/null || true
+cat /sys/class/power_supply/BAT*/status 2&gt;/dev/null || true</code></pre><p>Choose and test the sustained-outage shutdown policy before an outage occurs.</p></li>
+          </ol>
+          <div class="callout warning"><strong>Remaining power gaps.</strong> Firmware tooling, SMART tooling, battery alerting, and low-battery shutdown are not currently managed by a role. Record any manual change as drift and promote it into automation before calling the setup fully reproducible.</div>
+        </section>
+
+        <section id="bootstrap">
+          <p class="section-label">07 · Managed-node preparation</p>
+          <h2>Prepare Linux, then return control to the MacBook</h2>
+          <p>Run the standalone installer as <code>homelab</code> on the ThinkPad. It uses a temporary source archive, installs managed-node prerequisites, global uv, the user’s pinned Python, and the detected-laptop lid safety policy. It does not retain a checkout or install Ansible.</p>
+          <pre><code>curl -fsSL https://raw.githubusercontent.com/danny-ngo/homelab-config/main/install.sh | bash
+
+command -v uv
+uv --version
+uv python find 3.14
+python3 --version</code></pre>
+          <p>On this ThinkPad, preparation detects the physical lid switch and activates the persistent lid-close ignore policy before it exits. Once the success message says the lid can be closed, no controller-side Ansible run or reboot is required before closing it.</p>
+          <div class="callout"><strong>Ownership boundary.</strong> Debian’s <code>/usr/bin/python3</code> runs Ansible modules. uv-managed Python is for user workloads. Do not install Debian’s Ansible package or make the ThinkPad a second controller.</div>
+        </section>
+
+        <section id="inventory">
+          <p class="section-label">08 · Controller preparation</p>
+          <h2>Describe the real host without publishing it</h2>
+          <p class="section-intro">Perform these steps in the persistent MacBook checkout. Production addresses, enrollment credentials, hashes, backup endpoints, and real keys stay out of public documentation and example inventory.</p>
+          <ol class="steps">
+            <li><h3>Initialize and review inventory</h3><pre><code>make init-inventory
+$EDITOR ansible/inventories/production/hosts.yml
+$EDITOR ansible/inventories/production/group_vars/all/main.yml
+$EDITOR ansible/inventories/production/group_vars/infra_hosts/main.yml</code></pre><p>Set the reserved LAN address, Debian/x86_64 facts, Tailscale tag, K3s node address, management networks, storage declarations, and dotfiles profiles. Keep <code>thinkpad</code> in both <code>infra_hosts</code> and <code>k3s_servers</code>.</p></li>
+            <li><h3>Create the encrypted vault</h3><p>Copy the variable shape from <code>vault.yml.example</code>, replace required placeholders, encrypt the file, and provide its password only through <code>ANSIBLE_VAULT_PASSWORD_FILE</code>. Never put a Tailscale key in shell history.</p></li>
+            <li><h3>Inspect the effective graph</h3><pre><code>make inventory
+uv run --frozen ansible-inventory \
+  -i ansible/inventories/production/hosts.yml \
+  --host thinkpad</code></pre><p>Review this locally; do not paste decrypted variables into tickets or chat.</p></li>
+            <li><h3>Run repository validation</h3><pre><code>make ci</code></pre><p>Fix lint, syntax, unit, link, or contract failures before contacting production.</p></li>
+          </ol>
+        </section>
+
+        <section id="apply">
+          <p class="section-label">09 · Ansible convergence</p>
+          <h2>Apply the stable infrastructure profile</h2>
+          <p>From the MacBook, inspect check mode, apply, and validate. The profile limits the site playbook to infrastructure hosts; this ThinkPad participates in baseline, infrastructure, Tailscale, dotfiles, K3s prerequisites, and K3s server plays.</p>
+          <pre><code>./bootstrap.sh --profile infra --check -- --ask-become-pass
+./bootstrap.sh --profile infra -- --ask-become-pass
+
+ANSIBLE_CONFIG=ansible/ansible.cfg \
+  "$(uv tool dir --bin)/ansible-playbook" \
+  -i ansible/inventories/production/hosts.yml \
+  ansible/playbooks/validate.yml --limit thinkpad --ask-become-pass</code></pre>
+          <div class="grid-2">
+            <article class="card"><h3>Baseline and infrastructure</h3><ul><li>Host facts match inventory.</li><li>Administrator key, UFW baseline, and declared storage are applied.</li><li>Debian-native Docker packages and bounded logs are configured.</li><li>Persistent roots and dotfiles revision exist.</li></ul></article>
+            <article class="card"><h3>Access and cluster</h3><ul><li>Tailscale is authenticated with DNS and Tailscale SSH disabled.</li><li>K3s uses the checksum-pinned binary.</li><li>The API uses the LAN identity.</li><li>The join token remains transient in Ansible.</li></ul></article>
+          </div>
+          <div class="callout warning"><strong>Review firewall reachability before adding workers.</strong> The baseline permits management SSH, while K3s also requires the selected backend’s LAN-only API and inter-node ports. Reconcile explicit UFW policy with the pinned K3s design before treating worker connectivity as production-ready.</div>
+          <div class="callout"><strong>Sudo policy is not currently managed.</strong> The commands above use Ansible’s interactive become-password prompt. If passwordless automation is later selected, implement and validate a narrowly reviewed sudoers policy through Ansible; do not leave an undocumented manual exception.</div>
+        </section>
+
+        <section id="k3s">
+          <p class="section-label">10 · Cluster verification</p>
+          <h2>Prove the server before joining workers</h2>
+          <pre><code>ssh homelab@THINKPAD_LAN_IP 'sudo systemctl --no-pager status k3s'
+ssh homelab@THINKPAD_LAN_IP 'sudo k3s kubectl get --raw=/readyz'
+ssh homelab@THINKPAD_LAN_IP 'sudo k3s kubectl get nodes -o wide'
+ssh homelab@THINKPAD_LAN_IP 'sudo ss -lntup'</code></pre>
+          <ul class="checklist">
+            <li>The server reports <code>Ready</code> with architecture <code>amd64</code>.</li>
+            <li>The API address is the reserved LAN address, not a Tailscale address.</li>
+            <li>Pod and service CIDRs match inventory and do not overlap the LAN.</li>
+            <li><code>/etc/rancher/k3s/config.yaml</code> is root-owned with mode <code>0600</code>.</li>
+            <li>No token, administrator kubeconfig, or secret appears in captured output.</li>
+          </ul>
+          <p>Join workers only after the server is healthy and backed up. Use the <a href="runbooks/k3s-recovery.md">K3s recovery runbook</a> for access, upgrade sequencing, and restore behavior.</p>
+        </section>
+
+        <section id="state">
+          <p class="section-label">11 · State protection</p>
+          <h2>Classify and back up every durable byte</h2>
+          <table>
+            <thead><tr><th>Path or asset</th><th>Meaning</th><th>Required protection</th></tr></thead>
+            <tbody>
+              <tr><td><code>/var/lib/rancher/k3s/server/db</code></td><td>Single-server SQLite datastore.</td><td>Consistent off-host backup and clean restore test.</td></tr>
+              <tr><td><code>/var/lib/rancher/k3s/server/token</code></td><td>Key material protecting confidential datastore content.</td><td>Encrypted backup with the datastore; never Git or logs.</td></tr>
+              <tr><td><code>/etc/rancher/k3s/config.yaml</code></td><td>Server identity and network configuration.</td><td>Recoverable from inventory plus protected configuration backup.</td></tr>
+              <tr><td><code>/srv/infra/data</code></td><td>Docker databases and service metadata.</td><td>Service-aware backup, retention, encryption, and application-level restore.</td></tr>
+              <tr><td><code>/opt/infra/containers</code></td><td>Deployed Compose definitions.</td><td>Reconcile from reviewed source; protect deployment-only evidence.</td></tr>
+              <tr><td>Inventory and Vault</td><td>Desired state and enrollment material on the MacBook.</td><td>Repository history plus independent encrypted secret recovery.</td></tr>
+            </tbody>
+          </table>
+          <div class="callout danger"><strong>Do not copy a live database blindly.</strong> Each stateful service needs a product-specific snapshot or quiesce method, retention policy, and application-level restore check. A successful file copy is not a backup acceptance test.</div>
+        </section>
+
+        <section id="validate">
+          <p class="section-label">12 · Acceptance</p>
+          <h2>Hand off only a rebuildable host</h2>
+          <pre><code>make validate LIMIT=thinkpad
+make check PLAYBOOK=ansible/playbooks/site.yml LIMIT=thinkpad
+
+ssh homelab@THINKPAD_LAN_IP '
+  systemctl --failed;
+  sudo systemctl is-active docker k3s tailscaled ssh;
+  sudo docker info;
+  sudo docker compose version;
+  sudo k3s kubectl get nodes -o wide;
+  tailscale status;
+  df -h / /srv
+'</code></pre>
+          <ul class="checklist">
+            <li>A second Ansible check has no unexplained changes.</li>
+            <li>The host returns after a controlled reboot and stays awake with the lid in its final position.</li>
+            <li>LAN SSH and Tailscale management work; Tailscale SSH stays disabled.</li>
+            <li>Docker, K3s, Tailscale, SSH, time, filesystems, and declared mounts are healthy.</li>
+            <li>The wired Wake-on-LAN path works from the Pi 2 fixed command.</li>
+            <li>K3s state and the initial <code>/srv</code> structure are covered by the selected backup system.</li>
+            <li>Recovery media boots and this guide is available without depending on the ThinkPad.</li>
+          </ul>
+          <div class="callout success"><strong>Setup is complete when recovery is credible.</strong> Record Debian and firmware versions, disk identity, reservation, deployed Git revision, K3s pin, backup job, last restore result, and first successful reboot test.</div>
+        </section>
+
+        <section id="sources">
+          <p class="section-label">References</p>
+          <h2>Primary documentation</h2>
+          <ul class="source-list">
+            <li><a href="https://www.debian.org/releases/trixie/amd64/">Debian 13 amd64 installation guide</a></li>
+            <li><a href="https://www.debian.org/releases/stable/release-notes/">Debian 13 release notes</a></li>
+            <li><a href="https://packages.debian.org/trixie/docker.io">Debian trixie docker.io package</a></li>
+            <li><a href="https://packages.debian.org/trixie/docker-cli">Debian trixie docker-cli package</a></li>
+            <li><a href="https://packages.debian.org/trixie/docker-compose">Debian trixie Docker Compose package</a></li>
+            <li><a href="https://docs.k3s.io/installation/requirements">K3s requirements and network ports</a></li>
+            <li><a href="https://docs.k3s.io/datastore/backup-restore">K3s backup and restore</a></li>
+            <li><a href="https://pkgs.tailscale.com/stable/">Tailscale stable packages for Debian trixie</a></li>
+          </ul>
+        </section>
+      </main>
+    </div>
+
+    <footer><span>Homelab configuration · ThinkPad setup</span><span>Review after storage, backup, firewall, or K3s topology changes.</span></footer>
+  </div>
+</body>
+</html>

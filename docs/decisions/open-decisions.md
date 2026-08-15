@@ -69,6 +69,7 @@ architecture decisions are not repeated here.
   Ansible is not a Homebrew package.
 - Linux initial bootstrap installs global uv, per-user uv-managed Python 3.14,
   and a per-user global 3.14 pin; system Python executes Ansible modules.
+  Debian laptops also receive the shared persistent lid-close ignore policy.
 - Ansible Vault, strict OpenSSH host-key checking, Tailscale SSH exclusion,
   tagged unattended nodes, Docker placement, the current bare-metal Pi-hole
   baseline, the K3s SQLite/control-plane shape, and the no-GitOps baseline are

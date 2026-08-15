@@ -3,13 +3,16 @@
     name: "{{ infra_host_packages }}"
     state: present
 
-- name: Create the persistent infrastructure root
+- name: Create the infrastructure definition and data parent roots
   ansible.builtin.file:
-    path: "{{ infra_host_root }}"
+    path: "{{ item }}"
     state: directory
     owner: root
     group: root
     mode: "0755"
+  loop:
+    - "{{ infra_host_definition_root }}"
+    - "{{ infra_host_data_root | dirname }}"
 
 - name: Create the infrastructure container and data roots
   ansible.builtin.file:
@@ -21,6 +24,30 @@
   loop:
     - "{{ infra_host_container_root }}"
     - "{{ infra_host_data_root }}"
+
+- name: Create the systemd-logind drop-in directory
+  ansible.builtin.file:
+    path: "{{ infra_host_logind_lid_drop_in | dirname }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  when: infra_host_ignore_lid_switch | bool
+
+- name: Keep the infrastructure host awake when its lid is closed
+  ansible.builtin.template:
+    src: logind-lid.conf.j2
+    dest: "{{ infra_host_logind_lid_drop_in }}"
+    owner: root
+    group: root
+    mode: "0644"
+  when: infra_host_ignore_lid_switch | bool
+
+- name: Remove the managed lid policy when it is disabled
+  ansible.builtin.file:
+    path: "{{ infra_host_logind_lid_drop_in }}"
+    state: absent
+  when: not (infra_host_ignore_lid_switch | bool)
 
 - name: Create the Docker configuration directory
   ansible.builtin.file:

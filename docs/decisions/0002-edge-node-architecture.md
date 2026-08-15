@@ -370,7 +370,7 @@ cannot satisfy. The current split is:
 - ThinkCentre: always-on remote development server; T3 Code, language
   toolchains, and agent CLIs run directly on the host.
 - ThinkPad: persistent infrastructure host; databases run as Docker containers
-  with definitions under `/srv/infra/containers` and data under
+  with definitions under `/opt/infra/containers` and data under
   `/srv/infra/data`.
 
 Container images and writable layers are replaceable. Each database still

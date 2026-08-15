@@ -1,13 +1,14 @@
-- name: Inspect the persistent infrastructure paths
+- name: Inspect the infrastructure definition and data paths
   ansible.builtin.stat:
     path: "{{ item }}"
   loop:
-    - "{{ infra_host_root }}"
+    - "{{ infra_host_definition_root }}"
+    - "{{ infra_host_data_root | dirname }}"
     - "{{ infra_host_container_root }}"
     - "{{ infra_host_data_root }}"
   register: infra_host_path_status
 
-- name: Verify the persistent infrastructure paths
+- name: Verify the infrastructure definition and data paths
   ansible.builtin.assert:
     that:
       - item.stat.isdir | default(false)
@@ -15,6 +16,29 @@
   loop: "{{ infra_host_path_status.results }}"
   loop_control:
     label: "{{ item.item }}"
+
+- name: Inspect the managed lid policy
+  ansible.builtin.stat:
+    path: "{{ infra_host_logind_lid_drop_in }}"
+  register: infra_host_lid_policy_status
+  when: infra_host_ignore_lid_switch | bool
+
+- name: Read the managed lid policy
+  ansible.builtin.slurp:
+    src: "{{ infra_host_logind_lid_drop_in }}"
+  register: infra_host_lid_policy_content
+  when: infra_host_ignore_lid_switch | bool
+
+- name: Verify the managed lid policy
+  ansible.builtin.assert:
+    that:
+      - infra_host_lid_policy_status.stat.isreg | default(false)
+      - (infra_host_lid_policy_status.stat.mode | default('')) == '0644'
+      - "'HandleLidSwitch=ignore' in (infra_host_lid_policy_content.content | b64decode)"
+      - "'HandleLidSwitchExternalPower=ignore' in (infra_host_lid_policy_content.content | b64decode)"
+      - "'HandleLidSwitchDocked=ignore' in (infra_host_lid_policy_content.content | b64decode)"
+    quiet: true
+  when: infra_host_ignore_lid_switch | bool
 
 - name: Verify the infrastructure Docker client is available
   ansible.builtin.command: docker --version

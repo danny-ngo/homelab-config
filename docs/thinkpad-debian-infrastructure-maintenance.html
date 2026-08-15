@@ -1,0 +1,585 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <meta name="description" content="Maintenance and recovery runbook for the Debian 13 ThinkPad infrastructure host, Docker platform, and single K3s server.">
+  <title>ThinkPad · Debian 13 Infrastructure Maintenance Runbook</title>
+  <style>
+    :root {
+      --bg: #f3f1eb;
+      --paper: #fffdf8;
+      --ink: #17201d;
+      --muted: #66706b;
+      --line: #d8d7cf;
+      --soft: #ebe9e2;
+      --accent: #0c7358;
+      --accent-soft: #dcefe7;
+      --blue: #245f87;
+      --blue-soft: #e1edf5;
+      --amber: #8a5a08;
+      --amber-soft: #f7ecd2;
+      --red: #963f35;
+      --red-soft: #f5e1dd;
+      --code: #14221d;
+      --code-ink: #e9f4ef;
+      color-scheme: light;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: var(--bg);
+      color: var(--ink);
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #111714;
+        --paper: #17201c;
+        --ink: #edf3ef;
+        --muted: #a4b0a9;
+        --line: #34413b;
+        --soft: #202b26;
+        --accent: #73d6b3;
+        --accent-soft: #163c31;
+        --blue: #8fc7ee;
+        --blue-soft: #193448;
+        --amber: #f0c66c;
+        --amber-soft: #413316;
+        --red: #f19c90;
+        --red-soft: #482723;
+        --code: #09110e;
+        --code-ink: #dcf0e7;
+        color-scheme: dark;
+      }
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; scroll-padding-top: 1.5rem; }
+    body { margin: 0; background: var(--bg); color: var(--ink); }
+    a { color: var(--blue); text-underline-offset: .18em; }
+    a:hover { text-decoration-thickness: 2px; }
+    a:focus-visible, summary:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
+    code, pre { font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace; }
+    code { font-size: .92em; }
+    :not(pre) > code { background: var(--soft); border-radius: .3rem; padding: .1em .34em; }
+    pre { margin: .8rem 0 0; padding: 1rem 1.1rem; border-radius: .7rem; overflow-x: auto; background: var(--code); color: var(--code-ink); font-size: .82rem; line-height: 1.55; box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--code-ink) 10%, transparent); }
+    .page { width: min(1320px, 100%); margin: 0 auto; padding: 2rem clamp(1rem, 3vw, 2.5rem) 5rem; }
+    .masthead { border-bottom: 1px solid var(--line); padding: 2.5rem 0 2rem; }
+    .kicker, .section-label, dt, th { font-size: .74rem; line-height: 1.3; font-weight: 750; letter-spacing: .09em; text-transform: uppercase; }
+    .kicker { color: var(--accent); margin: 0 0 .8rem; }
+    h1 { max-width: 13ch; margin: 0; font-size: clamp(2.4rem, 7vw, 5.5rem); line-height: .96; letter-spacing: -.065em; font-weight: 760; }
+    .lede { max-width: 72ch; margin: 1.35rem 0 0; color: var(--muted); font-size: clamp(1rem, 2vw, 1.2rem); line-height: 1.65; }
+    .meta { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: 1.4rem; }
+    .pill { display: inline-flex; align-items: center; gap: .42rem; padding: .38rem .68rem; border: 1px solid var(--line); border-radius: 999px; background: var(--paper); font-size: .8rem; }
+    .pill::before { content: ""; width: .48rem; height: .48rem; border-radius: 50%; background: var(--accent); }
+    .status-strip { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .75rem; margin: 1.25rem 0 2rem; }
+    .status-strip article { border: 1px solid var(--line); border-radius: .8rem; padding: .9rem; background: var(--paper); }
+    .status-strip span { display: block; color: var(--muted); font-size: .76rem; }
+    .status-strip strong { display: block; margin-top: .3rem; font-size: 1rem; line-height: 1.3; }
+    .layout { display: grid; grid-template-columns: 255px minmax(0, 1fr); gap: clamp(1.5rem, 4vw, 4rem); align-items: start; }
+    .toc { position: sticky; top: 1rem; border: 1px solid var(--line); border-radius: .8rem; background: var(--paper); padding: 1rem; }
+    .toc p { margin: 0 0 .7rem; }
+    .toc ul { list-style: none; padding: 0; margin: 0; }
+    .toc li { border-top: 1px solid var(--line); }
+    .toc li:first-child { border-top: 0; }
+    .toc a { display: block; padding: .55rem 0; color: var(--ink); text-decoration: none; font-size: .82rem; line-height: 1.3; }
+    .toc .install { margin-top: .8rem; padding: .65rem .75rem; border-radius: .55rem; background: var(--accent); color: #fff; text-align: center; font-weight: 700; }
+    main { min-width: 0; }
+    section { padding: 2rem 0; border-bottom: 1px solid var(--line); }
+    section:last-child { border-bottom: 0; }
+    h2 { margin: 0; font-size: clamp(1.55rem, 3vw, 2.35rem); letter-spacing: -.04em; line-height: 1.08; }
+    h3 { margin: 1.55rem 0 .35rem; font-size: 1.08rem; letter-spacing: -.015em; }
+    p, li { line-height: 1.62; }
+    p { margin: .65rem 0 0; }
+    ul, ol { padding-left: 1.25rem; }
+    li + li { margin-top: .3rem; }
+    .section-intro { max-width: 72ch; color: var(--muted); }
+    .callout { margin-top: 1rem; border-left: 4px solid var(--blue); border-radius: .2rem .65rem .65rem .2rem; padding: .85rem 1rem; background: var(--blue-soft); }
+    .callout strong { display: block; margin-bottom: .2rem; }
+    .callout.warning { border-color: var(--amber); background: var(--amber-soft); }
+    .callout.danger { border-color: var(--red); background: var(--red-soft); }
+    .callout.success { border-color: var(--accent); background: var(--accent-soft); }
+    .grid-2, .grid-3 { display: grid; gap: .8rem; margin-top: 1rem; }
+    .grid-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .grid-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .card { border: 1px solid var(--line); border-radius: .75rem; background: var(--paper); padding: 1rem; }
+    .card h3 { margin: 0; }
+    .card p { color: var(--muted); font-size: .9rem; }
+    .card ul { margin-bottom: 0; font-size: .9rem; }
+    .run { margin-top: 1.2rem; border: 1px solid var(--line); border-radius: .8rem; background: var(--paper); overflow: hidden; }
+    .run-head { display: grid; grid-template-columns: 3.2rem minmax(0, 1fr); gap: .8rem; align-items: center; padding: .8rem 1rem; background: var(--soft); border-bottom: 1px solid var(--line); }
+    .run-num { width: 2.2rem; height: 2.2rem; display: grid; place-items: center; border-radius: 50%; background: var(--accent); color: #fff; font-weight: 800; font-size: .8rem; }
+    .run-head h3 { margin: 0; }
+    .run-body { padding: 1rem; }
+    .run-body > :first-child { margin-top: 0; }
+    dl { display: grid; grid-template-columns: 10rem minmax(0, 1fr); margin: 1rem 0 0; border-top: 1px solid var(--line); }
+    dt, dd { margin: 0; padding: .72rem 0; border-bottom: 1px solid var(--line); }
+    dt { color: var(--muted); }
+    dd { padding-left: 1rem; line-height: 1.5; }
+    table { width: 100%; border-collapse: collapse; margin-top: 1rem; }
+    th, td { padding: .75rem .65rem; text-align: left; vertical-align: top; border-bottom: 1px solid var(--line); }
+    th { color: var(--muted); }
+    td { font-size: .9rem; line-height: 1.45; }
+    details { margin-top: .8rem; border: 1px solid var(--line); border-radius: .65rem; background: var(--paper); }
+    summary { cursor: pointer; padding: .8rem 1rem; font-weight: 750; }
+    details > div { padding: 0 1rem 1rem; }
+    .checklist { list-style: none; padding: 0; margin: 1rem 0 0; }
+    .checklist li { position: relative; padding: .58rem .75rem .58rem 2.35rem; border-top: 1px solid var(--line); }
+    .checklist li::before { content: "□"; position: absolute; left: .65rem; color: var(--accent); font-size: 1.2rem; line-height: 1.2; }
+    .checklist li:last-child { border-bottom: 1px solid var(--line); }
+    .source-list { columns: 2; column-gap: 2rem; }
+    .source-list li { break-inside: avoid; margin-bottom: .45rem; }
+    footer { display: flex; flex-wrap: wrap; justify-content: space-between; gap: .75rem; padding-top: 1.5rem; color: var(--muted); font-size: .8rem; }
+    @media (max-width: 900px) {
+      .status-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .layout { grid-template-columns: 1fr; }
+      .toc { position: static; }
+      .toc ul { columns: 2; column-gap: 1.5rem; }
+      .toc li { break-inside: avoid; }
+      .grid-3 { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 620px) {
+      .page { padding-inline: .85rem; }
+      .status-strip, .grid-2 { grid-template-columns: 1fr; }
+      .toc ul, .source-list { columns: 1; }
+      dl { grid-template-columns: 1fr; }
+      dt { border-bottom: 0; padding-bottom: 0; }
+      dd { padding-left: 0; }
+      table, tbody, tr, td { display: block; }
+      thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+      tr { padding: .5rem 0; border-bottom: 1px solid var(--line); }
+      td { border: 0; padding: .3rem 0; }
+      .run-head { grid-template-columns: 2.5rem minmax(0, 1fr); }
+    }
+    @media print {
+      :root { --bg: #fff; --paper: #fff; --ink: #000; --muted: #444; --line: #bbb; --soft: #eee; --code: #f3f3f3; --code-ink: #000; color-scheme: light; }
+      @page { margin: 14mm; }
+      .page { width: auto; padding: 0; }
+      .masthead { padding-top: 0; }
+      .layout { display: block; }
+      .toc { position: static; margin: 1rem 0; }
+      .toc .install { display: none; }
+      pre, .card, .callout, .run, details { break-inside: avoid; box-shadow: none; }
+      a { color: #000; text-decoration: none; }
+      a[href^="http"]::after { content: " (" attr(href) ")"; font-size: .72em; overflow-wrap: anywhere; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <header class="masthead">
+      <p class="kicker">ThinkPad · infrastructure operator runbook · reviewed 15 August 2026</p>
+      <h1>Debian 13 infrastructure maintenance runbook</h1>
+      <p class="lede">The normal rhythm and incident procedures for the homelab’s stateful host. Preserve data before availability, preserve the single K3s server before workers, and make every OS, firmware, Docker, and cluster change observable and reversible.</p>
+      <div class="meta" aria-label="Runbook properties">
+        <span class="pill">Stateful production host</span><span class="pill">Operator-controlled updates</span>
+        <span class="pill">Single K3s server</span><span class="pill">Physical recovery available</span>
+      </div>
+    </header>
+
+    <div class="status-strip" aria-label="Operating posture">
+      <article><span>OS cadence</span><strong>Monthly + security review</strong></article>
+      <article><span>Backup check</span><strong>Before every change</strong></article>
+      <article><span>Reboot policy</span><strong>Observed maintenance window</strong></article>
+      <article><span>Restore drill</span><strong>Quarterly</strong></article>
+    </div>
+
+    <div class="layout">
+      <aside class="toc" aria-label="Table of contents">
+        <p class="section-label">Runbook index</p>
+        <ul>
+          <li><a href="#principles">Operating principles</a></li><li><a href="#schedule">Maintenance schedule</a></li>
+          <li><a href="#preflight">Universal preflight</a></li><li><a href="#os-update">Debian update</a></li>
+          <li><a href="#firmware">Firmware and hardware</a></li><li><a href="#docker">Docker maintenance</a></li>
+          <li><a href="#k3s">K3s maintenance</a></li><li><a href="#backup">Backup and restore proof</a></li>
+          <li><a href="#capacity">Capacity and housekeeping</a></li><li><a href="#power">Power and battery</a></li>
+          <li><a href="#triage">Incident triage</a></li><li><a href="#boot-failure">Boot failure</a></li>
+          <li><a href="#network-failure">Network or SSH failure</a></li><li><a href="#docker-failure">Docker failure</a></li>
+          <li><a href="#k3s-failure">K3s failure</a></li><li><a href="#disk-full">Disk full</a></li>
+          <li><a href="#rebuild">Rebuild and retire</a></li>
+        </ul>
+        <a class="install" href="thinkpad-debian-infrastructure-setup.html">← Setup guide</a>
+      </aside>
+
+      <main>
+        <section id="principles">
+          <p class="section-label">01 · Posture</p>
+          <h2>Protect state, then restore service</h2>
+          <p class="section-intro">The ThinkPad is the production convergence point for K3s server state and Docker service data. A fast but destructive repair is a failure if the backup is stale, the datastore token is lost, or the only service data is overwritten.</p>
+          <div class="grid-2">
+            <article class="card"><h3>Always true</h3><ul><li>The MacBook remains the Ansible controller.</li><li>Backups are checked before mutation.</li><li>APT transactions are complete and attended.</li><li>K3s server changes precede worker changes.</li><li>Tailscale is a private management path; Tailscale SSH remains disabled.</li><li>State paths and secrets never appear in public logs.</li><li>Reboots happen with console recovery practical.</li></ul></article>
+            <article class="card"><h3>Never normal</h3><ul><li>Running upgrades immediately before travel.</li><li>Pruning Docker volumes to recover routine space.</li><li>Editing rendered K3s config as the lasting fix.</li><li>Upgrading every cluster node in one blind step.</li><li>Copying a live database without its consistency method.</li><li>Regenerating K3s state before preserving failed data.</li></ul></article>
+          </div>
+          <div class="callout"><strong>Recovery order.</strong> Stabilize storage and power, preserve evidence, restore the ThinkPad OS, restore the K3s server and token, validate the API, rejoin workers, restore Docker service state, then reconcile applications.</div>
+        </section>
+
+        <section id="schedule">
+          <p class="section-label">02 · Schedule</p>
+          <h2>Use a small, repeatable maintenance rhythm</h2>
+          <table>
+            <thead><tr><th>Cadence</th><th>Actions</th><th>Escalate when</th></tr></thead>
+            <tbody>
+              <tr><td>Daily automated signal</td><td>Reachability, service health, backup result, disk threshold, and battery/AC state. Keep monitoring independent of the ThinkPad where possible.</td><td>A backup misses its window, the host flaps, or battery state changes unexpectedly.</td></tr>
+              <tr><td>Weekly</td><td>Review failed units, critical journal entries, pending security updates, Docker/K3s workload health, filesystem space, and backup recency.</td><td>A workload restarts repeatedly, root or data exceeds 80%, or K3s nodes are not Ready.</td></tr>
+              <tr><td>Monthly</td><td>Run the controlled Debian update, inspect SMART and thermals, review listening sockets, Docker growth, orphaned packages, configuration drift, and firmware availability.</td><td>APT proposes unexpected removals, SMART reports degradation, or firmware changes boot/security behavior.</td></tr>
+              <tr><td>Quarterly</td><td>Boot recovery media, test Wake-on-LAN and lid behavior, perform a clean-location restore, verify the K3s token is recoverable with the datastore, and test an application-level query.</td><td>Any restore depends on the running host, undocumented knowledge, or an unverified credential.</td></tr>
+              <tr><td>Before absence</td><td>Leave a known-good boot, healthy battery, ample storage, current backups, and no pending migration. Confirm a trusted person can reach the console.</td><td>Remote recovery depends on the failed host or a firmware unlock unavailable on site.</td></tr>
+            </tbody>
+          </table>
+        </section>
+
+        <section id="preflight">
+          <p class="section-label">03 · Every maintenance window</p>
+          <h2>Capture a universal preflight</h2>
+          <p>Run from a durable <code>tmux</code> session when connected remotely. Save non-secret evidence in the maintenance record; do not capture tokens, kubeconfigs, Vault output, environment files, or database credentials.</p>
+          <div class="run">
+            <div class="run-head"><span class="run-num">1</span><h3>Host, boot, and capacity</h3></div>
+            <div class="run-body"><pre><code>date
+uptime
+hostnamectl
+cat /etc/os-release
+uname -a
+systemctl --failed
+findmnt --verify
+df -hT / /srv
+df -ih / /srv
+lsblk -o NAME,MODEL,SERIAL,SIZE,FSTYPE,FSVER,MOUNTPOINTS
+journalctl -b -p err --no-pager
+ss -lntup</code></pre></div>
+          </div>
+          <div class="run">
+            <div class="run-head"><span class="run-num">2</span><h3>Platform and cluster</h3></div>
+            <div class="run-body"><pre><code>systemctl is-active ssh tailscaled docker k3s
+tailscale status
+sudo docker ps --format 'table {{.Names}}\t{{.Image}}\t{{.Status}}'
+sudo docker system df
+sudo k3s kubectl get nodes -o wide
+sudo k3s kubectl get pods -A
+sudo k3s kubectl get --raw=/readyz</code></pre></div>
+          </div>
+          <div class="run">
+            <div class="run-head"><span class="run-num">3</span><h3>Backup and change gate</h3></div>
+            <div class="run-body">
+              <ul class="checklist"><li>The latest off-host backup completed and its destination is reachable.</li><li>The backup covers the K3s SQLite database, matching <code>/var/lib/rancher/k3s/server/token</code>, config, and each Docker state path.</li><li>Important services have current application-level dumps or snapshots.</li><li>The rollback artifact or previous Git revision is known.</li><li>Physical console and recovery media are available for boot-chain changes.</li><li>The maintenance window includes validation and rollback time.</li></ul>
+            </div>
+          </div>
+        </section>
+
+        <section id="os-update">
+          <p class="section-label">04 · Routine procedure</p>
+          <h2>Perform a controlled Debian update</h2>
+          <div class="run">
+            <div class="run-head"><span class="run-num">1</span><h3>Preview and review</h3></div>
+            <div class="run-body"><p>Read Debian security advisories and stable release notes relevant to installed packages. Refresh metadata, inspect origins, simulate the transaction, and stop if removals are surprising.</p><pre><code>sudo apt update
+apt list --upgradable
+apt-cache policy
+sudo apt-get --simulate full-upgrade</code></pre><p>Review Tailscale separately because the role configures its official third-party APT source. Debian-native Docker remains on Debian’s repositories.</p></div>
+          </div>
+          <div class="run">
+            <div class="run-head"><span class="run-num">2</span><h3>Upgrade and read the result</h3></div>
+            <div class="run-body"><pre><code>sudo apt full-upgrade
+sudo dpkg --audit
+systemctl --failed
+sudo journalctl -p err --since '1 hour ago' --no-pager
+find /etc -xdev -type f \( -name '*.dpkg-dist' -o -name '*.dpkg-old' -o -name '*.ucf-dist' \) -print</code></pre><p>Resolve package configuration files deliberately. Preserve the Ansible-managed version unless a reviewed repository change adopts the new default. Do not restart services repeatedly without understanding which stateful operations are active.</p></div>
+          </div>
+          <div class="run">
+            <div class="run-head"><span class="run-num">3</span><h3>Reconcile desired state</h3></div>
+            <div class="run-body"><p>From the MacBook, validate and reapply the profile so a package change cannot leave silent drift. These commands assume the configured become method works non-interactively; otherwise use the setup guide’s <code>--ask-become-pass</code> variants.</p><pre><code>make ci
+./bootstrap.sh --profile infra --check
+./bootstrap.sh --profile infra
+make validate LIMIT=thinkpad</code></pre></div>
+          </div>
+          <div class="run">
+            <div class="run-head"><span class="run-num">4</span><h3>Reboot under observation</h3></div>
+            <div class="run-body"><p>Reboot when the kernel, systemd, firmware-facing libraries, container runtime, or maintenance plan requires it. Drain or pause sensitive application work first.</p><pre><code>sudo systemctl reboot</code></pre><p>Watch LAN reachability from another device. If the host misses its normal return time plus two minutes, switch to the physical console; do not keep issuing remote reboot commands.</p></div>
+          </div>
+          <div class="run">
+            <div class="run-head"><span class="run-num">5</span><h3>Smoke-test production</h3></div>
+            <div class="run-body"><pre><code>uptime
+uname -a
+systemctl --failed
+systemctl is-active ssh tailscaled docker k3s
+sudo docker ps
+sudo k3s kubectl get nodes -o wide
+sudo k3s kubectl get pods -A
+sudo k3s kubectl get --raw=/readyz
+journalctl -b -p err --no-pager</code></pre><p>Finish with service-specific health checks and one real read-only application query. Process state alone does not prove data-path health.</p></div>
+          </div>
+        </section>
+
+        <section id="firmware">
+          <p class="section-label">05 · Hardware lifecycle</p>
+          <h2>Treat firmware as a boot-chain change</h2>
+          <p class="section-intro">Firmware tooling is not currently owned by the repository. If <code>fwupd</code> and <code>smartmontools</code> are adopted, add them to reviewed automation before relying on these procedures.</p>
+          <div class="grid-2">
+            <article class="card"><h3>Firmware review</h3><pre><code>fwupdmgr get-devices
+fwupdmgr refresh
+fwupdmgr get-updates</code><p>Read the vendor release notes. Apply updates only on AC power with a healthy battery, current backup, local console, and recovery media. Do not interrupt a capsule update.</p></article>
+            <article class="card"><h3>Storage and thermals</h3><pre><code>sudo smartctl --scan
+sudo smartctl -x DEVICE
+cat /sys/class/thermal/thermal_zone*/temp
+cat /sys/class/power_supply/BAT*/capacity
+cat /sys/class/power_supply/BAT*/status</code><p>Replace <code>DEVICE</code> with the explicit scanned device. Escalate increasing media errors, critical warnings, unsafe temperature, swelling, or rapidly degrading battery capacity.</p></article>
+          </div>
+          <div class="callout warning"><strong>After firmware.</strong> Re-enter firmware settings, confirm UEFI/Secure Boot, virtualization, Wake-on-LAN, boot order, and AC-loss behavior, then repeat the complete reboot smoke test.</div>
+        </section>
+
+        <section id="docker">
+          <p class="section-label">06 · Container platform</p>
+          <h2>Maintain Docker without deleting evidence</h2>
+          <h3>Monthly inspection</h3>
+          <pre><code>sudo docker info
+sudo docker ps --all
+sudo docker system df --verbose
+sudo journalctl -u docker --since '1 month ago' --no-pager
+sudo du -xhd1 /srv/infra/data /opt/infra/containers | sort -h</code></pre>
+          <table>
+            <thead><tr><th>Action</th><th>Safe condition</th><th>Rollback or warning</th></tr></thead>
+            <tbody>
+              <tr><td>Pull a new image</td><td>The Compose definition pins a reviewed version or digest, release notes are read, backup is current, and migration behavior is known.</td><td>Record the prior digest. Never deploy <code>latest</code> as the rollback plan.</td></tr>
+              <tr><td>Restart a stack</td><td>Dependencies, health checks, and shutdown grace are understood.</td><td>Use the stack’s documented Compose project and inspect logs before retrying.</td></tr>
+              <tr><td>Remove stopped containers</td><td>The container is not needed for evidence or rollback and its state is externalized.</td><td>Removing a container is not equivalent to deleting its named volume.</td></tr>
+              <tr><td>Prune images/build cache</td><td>Exact candidates are reviewed and required rollback images are preserved.</td><td>Avoid broad <code>system prune</code> during an incident.</td></tr>
+              <tr><td>Remove a volume</td><td>The service has been retired, contents are backed up and restored elsewhere, and the exact volume is approved.</td><td>Never use <code>--volumes</code> as routine cleanup.</td></tr>
+            </tbody>
+          </table>
+          <p>After a stack change, prove container health, host ports, dependency connectivity, application behavior, and the backup job. Docker live-restore reduces disruption during daemon restarts but does not make database migrations reversible.</p>
+        </section>
+
+        <section id="k3s">
+          <p class="section-label">07 · Cluster lifecycle</p>
+          <h2>Upgrade the server before workers</h2>
+          <p>The repository installs a checksum-pinned K3s binary. Do not bypass that contract with the upstream convenience installer. Change the pinned version, architecture checksums, and relevant documentation in a reviewed commit.</p>
+          <div class="run">
+            <div class="run-head"><span class="run-num">1</span><h3>Prepare the cluster</h3></div>
+            <div class="run-body"><pre><code>sudo k3s kubectl get nodes -o wide
+sudo k3s kubectl get pods -A
+sudo k3s kubectl get --raw=/readyz
+/usr/local/bin/k3s --version</code></pre><p>Read K3s release notes and Kubernetes version-skew policy. Do not skip unsupported minor versions. Verify the current datastore-plus-token backup and record the old binary checksum.</p></div>
+          </div>
+          <div class="run">
+            <div class="run-head"><span class="run-num">2</span><h3>Review the repository change</h3></div>
+            <div class="run-body"><p>Update both server and agent checksum maps for every supported architecture. Run <code>make ci</code>, review check mode, then apply only to the ThinkPad first.</p><pre><code>make ci
+make check PLAYBOOK=ansible/playbooks/k3s.yml LIMIT=thinkpad
+make k3s LIMIT=thinkpad
+make validate LIMIT=thinkpad</code></pre></div>
+          </div>
+          <div class="run">
+            <div class="run-head"><span class="run-num">3</span><h3>Prove the server, then roll workers</h3></div>
+            <div class="run-body"><p>Require API readiness and normal workloads before changing any agent. Upgrade one Pi 3 worker at a time; wait for Ready and application recovery before the next.</p><pre><code>ssh thinkpad 'sudo k3s kubectl get --raw=/readyz'
+ssh thinkpad 'sudo k3s kubectl get nodes -o wide'
+ssh thinkpad 'sudo k3s kubectl get pods -A'
+make k3s LIMIT=pi3a
+ssh thinkpad 'sudo k3s kubectl wait node/pi3a --for=condition=Ready --timeout=5m'</code></pre></div>
+          </div>
+          <div class="callout danger"><strong>Rollback is a state operation.</strong> If the new version changed the datastore incompatibly, restoring only the old binary is insufficient. Stop K3s, preserve the failed state, restore the matching pre-upgrade datastore and token, restore the previous verified binary/config, then start and validate. Follow the <a href="runbooks/k3s-recovery.md">K3s recovery runbook</a>.</div>
+        </section>
+
+        <section id="backup">
+          <p class="section-label">08 · Durability</p>
+          <h2>Verify backups by restoring them</h2>
+          <p class="section-intro">A green backup job proves that bytes were copied. The quarterly drill proves that the bytes are sufficient, decryptable, internally consistent, and usable by the expected software.</p>
+          <div class="grid-3">
+            <article class="card"><h3>K3s</h3><ul><li>SQLite database directory.</li><li>Matching server token.</li><li>Server config and pinned version.</li><li>Restore to isolated storage.</li><li>API and object validation.</li></ul></article>
+            <article class="card"><h3>Docker services</h3><ul><li>Product-aware dump or snapshot.</li><li>Persistent path inventory.</li><li>Runtime secret recovery.</li><li>Clean service instance.</li><li>Application-level query.</li></ul></article>
+            <article class="card"><h3>Host recovery</h3><ul><li>Inventory and encrypted Vault.</li><li>Disk and mount declarations.</li><li>SSH trust records.</li><li>Debian and firmware versions.</li><li>Recovery guide offline.</li></ul></article>
+          </div>
+          <h3>Quarterly restore acceptance</h3>
+          <ul class="checklist">
+            <li>Select a recent backup without using files from the live ThinkPad.</li>
+            <li>Restore into a clean, isolated location with documented credentials.</li>
+            <li>Verify ownership, permissions, versions, and checksums where applicable.</li>
+            <li>Start only the isolated recovery target; prevent it from impersonating production.</li>
+            <li>Run K3s API/object checks and a service-specific data query.</li>
+            <li>Record backup ID, restore duration, result, missing steps, and corrective owner.</li>
+            <li>Securely dispose of temporary restored secrets and data after acceptance.</li>
+          </ul>
+        </section>
+
+        <section id="capacity">
+          <p class="section-label">09 · Housekeeping</p>
+          <h2>Recover space from known owners</h2>
+          <pre><code>df -hT
+df -ih
+sudo du -xhd1 /var /srv | sort -h
+sudo du -xhd1 /var/lib /var/log /srv/infra | sort -h
+journalctl --disk-usage
+sudo docker system df --verbose
+sudo k3s crictl images
+sudo lsof +L1</code></pre>
+          <table>
+            <thead><tr><th>Owner</th><th>Preferred response</th><th>Avoid</th></tr></thead>
+            <tbody>
+              <tr><td>APT cache</td><td><code>sudo apt clean</code> after a successful update when cached packages are no longer part of rollback.</td><td>Removing dpkg database files.</td></tr>
+              <tr><td>Journal</td><td>Investigate the noisy unit, then apply a deliberate retention cap or targeted vacuum.</td><td>Deleting journal files by hand.</td></tr>
+              <tr><td>Docker images/cache</td><td>Review exact unreferenced objects, preserve rollback images, then remove approved candidates.</td><td>Blind prune commands or volume pruning.</td></tr>
+              <tr><td>K3s images/logs</td><td>Identify pods and image ownership through K3s tools; fix workload retention and restart loops.</td><td>Deleting containerd directories directly.</td></tr>
+              <tr><td>Service data</td><td>Use the service’s retention, archive, compaction, or vacuum procedure after backup.</td><td>Deleting unknown files beneath <code>/srv/infra/data</code>.</td></tr>
+            </tbody>
+          </table>
+        </section>
+
+        <section id="power">
+          <p class="section-label">10 · Laptop power</p>
+          <h2>Use the battery as a signal, not a strategy</h2>
+          <p>The initial Debian preparation installs the lid-close policy and reloads <code>systemd-logind</code> without ending active sessions. The infrastructure profile continues to own <code>/etc/systemd/logind.conf.d/60-homelab-lid.conf</code>. After manually changing the file, reload <code>systemd-logind</code> before testing the effective behavior.</p>
+          <pre><code>cat /sys/class/power_supply/AC*/online 2&gt;/dev/null || true
+cat /sys/class/power_supply/BAT*/status 2&gt;/dev/null || true
+cat /sys/class/power_supply/BAT*/capacity 2&gt;/dev/null || true
+sudo systemctl reload systemd-logind.service
+systemd-analyze cat-config systemd/logind.conf
+busctl get-property org.freedesktop.login1 /org/freedesktop/login1 org.freedesktop.login1.Manager HandleLidSwitch
+busctl get-property org.freedesktop.login1 /org/freedesktop/login1 org.freedesktop.login1.Manager HandleLidSwitchExternalPower
+busctl get-property org.freedesktop.login1 /org/freedesktop/login1 org.freedesktop.login1.Manager HandleLidSwitchDocked</code></pre>
+          <ul>
+            <li>Investigate unexpected battery discharge while AC is reported online.</li>
+            <li>Keep the lid policy explicit and retest after systemd or firmware changes.</li>
+            <li>Keep air paths clear and do not operate a swollen or physically damaged battery.</li>
+            <li>Define a measured low-battery shutdown threshold and alert path before automating it.</li>
+            <li>After a real outage, inspect the previous boot with <code>journalctl -b -1</code>, filesystems, Docker, K3s, and backup freshness.</li>
+          </ul>
+        </section>
+
+        <section id="triage">
+          <p class="section-label">11 · Incident entry</p>
+          <h2>Preserve evidence before changing state</h2>
+          <ol>
+            <li>Confirm blast radius from an independent machine: host, LAN, Tailscale, Docker service, K3s API, worker, or application.</li>
+            <li>Record the time, last known good state, recent OS/config/deployment changes, power event, and backup ID.</li>
+            <li>Use the least invasive access path: existing SSH session, new LAN SSH, Tailscale, physical console, then recovery USB.</li>
+            <li>Capture <code>systemctl --failed</code>, relevant journal, mounts, space, sockets, Docker state, and K3s state without exposing secrets.</li>
+            <li>Stop retry loops that create more writes. Preserve failed disks, databases, K3s data, and container logs before replacement.</li>
+            <li>Choose repair, rollback, or restore based on state safety—not on which command is fastest.</li>
+          </ol>
+          <div class="callout danger"><strong>Do not improvise destructive cleanup.</strong> Never remove K3s data, Docker volumes, filesystem metadata, package databases, or failed-state directories until an exact backup exists and the recovery owner approves the target.</div>
+        </section>
+
+        <section id="boot-failure">
+          <p class="section-label">12 · Incident procedure</p>
+          <h2>Host does not return after reboot</h2>
+          <ol class="steps">
+            <li><h3>Check power and firmware state</h3><p>Verify AC, battery, Ethernet link, display output, boot order, storage detection, Secure Boot state, and any pending firmware capsule screen. Do not power-cycle during an active firmware update.</p></li>
+            <li><h3>Use the Debian boot menu</h3><p>Try the previous installed kernel from advanced options. If it boots, preserve the failing boot journal and package logs before making changes.</p><pre><code>journalctl -b -1 -p err --no-pager
+grep -E ' install | upgrade | remove ' /var/log/dpkg.log | tail -n 100
+ls -l /boot</code></pre></li>
+            <li><h3>Use recovery media</h3><p>Boot the verified Debian USB, identify filesystems by UUID and label, unlock encryption if used, and mount read-only first. Copy logs and critical state before repair. Never format or initialize a disk because it is not immediately mountable.</p></li>
+            <li><h3>Repair only the confirmed layer</h3><p>Bootloader, initramfs, filesystem, and disk failures have different remedies. If hardware health is suspect, clone or replace the device before write-heavy filesystem repair.</p></li>
+            <li><h3>Validate the full platform</h3><p>After boot, run the OS smoke test, Ansible validation, K3s API checks, Docker service checks, and a new backup. A successful login alone does not close the incident.</p></li>
+          </ol>
+        </section>
+
+        <section id="network-failure">
+          <p class="section-label">13 · Incident procedure</p>
+          <h2>LAN, Tailscale, or SSH is unavailable</h2>
+          <div class="grid-3">
+            <article class="card"><h3>Physical and LAN</h3><pre><code>ip -brief link
+ip -brief address
+ip route
+cat /etc/resolv.conf
+systemctl --type=service --state=running | grep -E 'NetworkManager|networking|systemd-networkd'</code><p>Check cable, link LEDs, switch/router lease, reservation, address conflict, gateway, and DNS separately. Inspect only the network manager actually active on this installation.</p></article>
+            <article class="card"><h3>SSH and firewall</h3><pre><code>systemctl status ssh
+ss -lntp
+sudo sshd -t
+sudo ufw status verbose
+journalctl -u ssh -b</code><p>Keep the console session while correcting policy. Do not disable the firewall merely to see whether access returns.</p></article>
+            <article class="card"><h3>Tailscale</h3><pre><code>systemctl status tailscaled
+tailscale status
+tailscale netcheck
+journalctl -u tailscaled -b</code><p>Tailscale is a management path, not the K3s worker endpoint. Restore LAN identity before cluster traffic.</p></article>
+          </div>
+          <p>If the SSH host key changed unexpectedly, stop. Verify whether the OS was rebuilt or keys were deliberately rotated through a trusted console before updating <code>known_hosts</code>.</p>
+        </section>
+
+        <section id="docker-failure">
+          <p class="section-label">14 · Incident procedure</p>
+          <h2>Docker or a stateful stack is unhealthy</h2>
+          <ol>
+            <li>Separate daemon failure from one Compose project: inspect <code>systemctl status docker</code>, <code>docker info</code>, and <code>docker ps --all</code>.</li>
+            <li>Inspect the relevant unit and container logs with a bounded time range; confirm filesystem space, inodes, mounts, and permissions.</li>
+            <li>Identify the exact deployed image digest, Compose definition revision, environment/secret source, and last successful backup.</li>
+            <li>Do not recreate or remove volumes. If a migration failed, stop writers and follow the product’s restore/rollback procedure.</li>
+            <li>Restart only the failing layer after its dependency and data state are understood. Repeated restarts can amplify corruption or lockout.</li>
+            <li>Close with container health, application-level read/write behavior as appropriate, dependency checks, and a post-incident backup.</li>
+          </ol>
+          <pre><code>systemctl status docker
+journalctl -u docker --since '1 hour ago' --no-pager
+sudo docker ps --all --no-trunc
+sudo docker inspect CONTAINER
+sudo docker logs --since 1h CONTAINER
+findmnt /srv
+df -h /srv
+df -ih /srv</code></pre>
+        </section>
+
+        <section id="k3s-failure">
+          <p class="section-label">15 · Incident procedure</p>
+          <h2>K3s API or cluster is unhealthy</h2>
+          <ol class="steps">
+            <li><h3>Confirm host prerequisites</h3><pre><code>systemctl status k3s
+journalctl -u k3s --since '1 hour ago' --no-pager
+findmnt -T /var/lib/rancher/k3s
+df -h /var/lib/rancher/k3s
+df -ih /var/lib/rancher/k3s</code></pre></li>
+            <li><h3>Test local API and nodes</h3><pre><code>sudo k3s kubectl get --raw=/readyz
+sudo k3s kubectl get nodes -o wide
+sudo k3s kubectl get pods -A
+sudo k3s kubectl get events -A --sort-by=.lastTimestamp</code></pre></li>
+            <li><h3>Protect datastore evidence</h3><p>Before reinstalling, removing, or generating a fresh server, stop write-heavy recovery attempts and preserve <code>/var/lib/rancher/k3s</code>, the matching token, config, binary checksum, and journal through the protected incident path.</p></li>
+            <li><h3>Restore the server first</h3><p>Use the documented K3s server recovery. Require local API readiness before rejoining or changing a worker. A fresh server without the old datastore is a new cluster.</p></li>
+            <li><h3>Reconcile workloads last</h3><p>After control-plane recovery, verify node architecture/Ready state, system pods, persistent volumes, secrets, services, ingress, and an application-level transaction.</p></li>
+          </ol>
+        </section>
+
+        <section id="disk-full">
+          <p class="section-label">16 · Incident procedure</p>
+          <h2>Root or data storage is full</h2>
+          <ol>
+            <li>Stop the noisiest non-critical writer if it is actively consuming the final space. Preserve logs and identify its owner first.</li>
+            <li>Check blocks and inodes, then inspect only the affected filesystem with <code>du -x</code>. Include deleted-open files with <code>lsof +L1</code>.</li>
+            <li>Use the owner-specific actions in the capacity table. Free a small, known-safe amount, then stabilize the service before deeper cleanup.</li>
+            <li>Do not delete unknown data under K3s, Docker, <code>/srv</code>, <code>/var/lib</code>, or <code>/boot</code>. Do not prune volumes.</li>
+            <li>After recovery, fix retention or capacity, run data-integrity checks, restart deliberately, validate applications, and confirm backups resume.</li>
+          </ol>
+          <div class="callout warning"><strong>Full disk can be a data incident.</strong> SQLite databases, container logs, image extraction, and package operations may be left incomplete. Inspect their integrity and logs instead of assuming that freeing space repaired them.</div>
+        </section>
+
+        <section id="rebuild">
+          <p class="section-label">17 · Lifecycle</p>
+          <h2>Rebuild or retire without losing identity</h2>
+          <h3>Rebuild sequence</h3>
+          <ol>
+            <li>Preserve failed hardware and state where practical. Record the last backup, Git revision, package versions, K3s pin, disk layout, firmware, and host-key status.</li>
+            <li>Restore Debian with the same hostname, architecture, intended LAN address, and storage paths by following the <a href="thinkpad-debian-infrastructure-setup.html">setup guide</a>.</li>
+            <li>Verify the new SSH host key at the console; replace the MacBook trust entry only after the rebuild is confirmed.</li>
+            <li>Apply baseline and infrastructure automation. Stop empty K3s and Docker services before restoring protected production state.</li>
+            <li>Restore the K3s datastore and matching token, validate the API, then reconnect workers.</li>
+            <li>Restore Docker services in dependency order and pass application-level tests before reopening deployments.</li>
+          </ol>
+          <h3>Retirement sequence</h3>
+          <ol>
+            <li>Migrate and restore-test every service; confirm no backup or deployment job still targets the host.</li>
+            <li>Drain/delete the K3s node as appropriate, revoke Tailscale identity and restricted SSH identities, remove router reservation and Wake-on-LAN target, and update inventory.</li>
+            <li>Archive the final configuration and restore evidence according to retention policy.</li>
+            <li>Erase internal storage with a method appropriate to the device and data classification; record completion before reuse or disposal.</li>
+          </ol>
+        </section>
+
+        <section id="sources">
+          <p class="section-label">References</p>
+          <h2>Primary documentation</h2>
+          <ul class="source-list">
+            <li><a href="https://www.debian.org/releases/stable/release-notes/">Debian 13 release notes</a></li>
+            <li><a href="https://www.debian.org/security/">Debian security information</a></li>
+            <li><a href="https://packages.debian.org/trixie/docker.io">Debian trixie docker.io package</a></li>
+            <li><a href="https://docs.k3s.io/upgrades/manual">K3s manual upgrades</a></li>
+            <li><a href="https://docs.k3s.io/datastore/backup-restore">K3s backup and restore</a></li>
+            <li><a href="https://docs.k3s.io/installation/requirements">K3s requirements and ports</a></li>
+            <li><a href="https://fwupd.github.io/libfwupdplugin/uefi-capsule-README.html">fwupd UEFI capsule behavior</a></li>
+            <li><a href="https://pkgs.tailscale.com/stable/">Tailscale stable packages for Debian trixie</a></li>
+          </ul>
+        </section>
+      </main>
+    </div>
+
+    <footer><span>Homelab configuration · ThinkPad operations</span><span>Review after service, storage, backup, firewall, power, or topology changes.</span></footer>
+  </div>
+</body>
+</html>

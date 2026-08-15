@@ -31,6 +31,8 @@ Ansible controller and manages a mixed Linux fleet with narrowly scoped roles.
 
 ## Installation and maintenance guides
 
+- [ThinkPad Debian infrastructure setup](thinkpad-debian-infrastructure-setup.html)
+- [ThinkPad Debian infrastructure maintenance](thinkpad-debian-infrastructure-maintenance.html)
 - [ThinkCentre Arch and CachyOS installation](thinkcentre-arch-cachyos-install.html)
 - [ThinkCentre Arch and CachyOS maintenance](thinkcentre-arch-cachyos-maintenance.html)
 
