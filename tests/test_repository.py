@@ -246,6 +246,41 @@ class RepositoryContractTests(unittest.TestCase):
             self.assertEqual(directory["owner"], "root")
             self.assertEqual(directory["group"], "root")
 
+    def test_infrastructure_paths_and_lid_policy_are_managed(self):
+        role_root = ROOT / "ansible" / "roles" / "infra_host"
+        defaults = yaml.safe_load((role_root / "defaults" / "main.yml").read_text())
+        tasks = yaml.safe_load((role_root / "tasks" / "main.yml").read_text())
+        lid_policy = (role_root / "templates" / "logind-lid.conf.j2").read_text()
+
+        self.assertEqual(defaults["infra_host_definition_root"], "/opt/infra")
+        self.assertEqual(
+            defaults["infra_host_container_root"],
+            "{{ infra_host_definition_root }}/containers",
+        )
+        self.assertEqual(defaults["infra_host_data_root"], "/srv/infra/data")
+        self.assertTrue(defaults["infra_host_ignore_lid_switch"])
+        self.assertEqual(
+            defaults["infra_host_logind_lid_drop_in"],
+            "/etc/systemd/logind.conf.d/60-homelab-lid.conf",
+        )
+
+        lid_task = next(
+            task
+            for task in tasks
+            if task["name"] == "Keep the infrastructure host awake when its lid is closed"
+        )
+        self.assertEqual(
+            lid_task["ansible.builtin.template"]["dest"],
+            "{{ infra_host_logind_lid_drop_in }}",
+        )
+        self.assertNotIn("notify", lid_task)
+        for setting in (
+            "HandleLidSwitch=ignore",
+            "HandleLidSwitchExternalPower=ignore",
+            "HandleLidSwitchDocked=ignore",
+        ):
+            self.assertIn(setting, lid_policy)
+
     def test_ssh_pipelining_avoids_systemd_osc_module_output(self):
         config = (ROOT / "ansible" / "ansible.cfg").read_text()
         self.assertIn("[ssh_connection]", config)

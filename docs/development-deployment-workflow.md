@@ -127,7 +127,7 @@ services/docker/
 Each stack should contain a Compose file, an example environment file with no
 secrets, health checks, resource limits, backup and restore instructions, and a
 short ownership note. The deployed definitions live under
-`/srv/infra/containers`; persistent state lives separately under
+`/opt/infra/containers`; persistent state lives separately under
 `/srv/infra/data`. Runtime credentials should use protected files or another
 selected secret mechanism under `/srv/infra/secrets`, not a committed `.env`
 file.
@@ -367,7 +367,7 @@ applications and need a stricter path.
 3. After merge, a protected manual workflow may use the same ephemeral
    GitHub/Tailscale path to invoke a separate forced Docker-stack command. That
    command copies only the reviewed definition to
-   `/srv/infra/containers/<stack>` and runs `docker compose pull` followed by
+   `/opt/infra/containers/<stack>` and runs `docker compose pull` followed by
    `docker compose up -d`.
 4. The workflow waits for container health and verifies the actual service
    protocol. On failure it captures status and logs, then follows the stack's

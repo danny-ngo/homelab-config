@@ -1,9 +1,11 @@
 argument_specs:
   main:
     options:
-      infra_host_root: {type: path}
+      infra_host_definition_root: {type: path}
       infra_host_container_root: {type: path}
       infra_host_data_root: {type: path}
       infra_host_packages: {type: list, elements: str}
       infra_host_docker_log_max_size: {type: str}
       infra_host_docker_log_max_files: {type: str}
+      infra_host_ignore_lid_switch: {type: bool}
+      infra_host_logind_lid_drop_in: {type: path}

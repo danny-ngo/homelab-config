@@ -131,7 +131,8 @@ fi
 
 # Platform modules prepare only the machine running this command. The macOS
 # workstation prepares controller tooling; Linux modules prepare managed-node
-# prerequisites and never install or invoke Ansible.
+# prerequisites plus narrow local safety settings and never install or invoke
+# Ansible.
 # shellcheck source=/dev/null
 source "$platform_script"
 
@@ -139,7 +140,7 @@ if [[ "$prepare_only" == true ]]; then
   if [[ "$platform" == "macos" ]]; then
     bootstrap_log "Workstation controller tooling is ready; no profile was applied."
   else
-    bootstrap_log "Managed-node prerequisites are ready; apply its profile from the macOS workstation."
+    bootstrap_log "Managed-node preparation is complete; apply its profile from the macOS workstation."
   fi
   exit 0
 fi

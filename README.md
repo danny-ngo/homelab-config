@@ -16,6 +16,11 @@ checkout:
 curl -fsSL https://raw.githubusercontent.com/danny-ngo/homelab-config/main/install.sh | bash
 ```
 
+On Debian laptops, managed-node preparation detects the lid switch, installs
+the persistent lid-close ignore policy, and reloads `systemd-logind` safely.
+When the command reports that the policy is active, the lid can be closed
+without waiting for the controller-side Ansible apply or a reboot.
+
 Set `HOMELAB_CONFIG_PARENT` on the receiving shell to choose a different macOS
 parent directory; Git still names the checkout `homelab-config`:
 
@@ -33,7 +38,8 @@ Within a checkout, `./bootstrap.sh` is the local operation entry point. It
 detects macOS, Debian-family Linux, or Arch-family Linux and prepares the
 current machine through the matching module under `bootstrap/platforms/`. Only
 macOS dispatches profiles under `bootstrap/profiles/`; Linux initial bootstrap
-installs the managed-node prerequisites and stops. The internal scripts are
+installs managed-node prerequisites and narrow local safety settings, then
+stops. The internal scripts are
 implementation details and are not intended to be invoked directly.
 
 The MacBook is the Ansible controller. On a fresh Mac, the remote installer

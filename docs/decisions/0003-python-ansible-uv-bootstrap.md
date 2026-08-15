@@ -55,7 +55,9 @@ hands off to `./bootstrap.sh --prepare-only`. That initial bootstrap:
 2. installs a machine-global uv executable;
 3. runs `uv python install --managed-python 3.14` as the administrator account;
 4. runs `uv python pin --global 3.14` for that account; and
-5. stops without installing Ansible or applying a profile.
+5. on Debian laptops, detects the lid switch, installs the shared persistent
+   lid-close ignore policy, and reloads `systemd-logind`; and
+6. stops without installing Ansible or applying a profile.
 
 On Debian, the pinned uv standalone installer writes to `/usr/local/bin`
 because Debian 13 does not provide uv as a stable distribution package. On

@@ -85,6 +85,18 @@ class BootstrapTests(unittest.TestCase):
         self.assertIn("UV_INSTALL_DIR=/usr/local/bin", result.stdout)
         self.assertIn("uv python install --managed-python 3.14", result.stdout)
         self.assertIn("uv python pin --global 3.14", result.stdout)
+        self.assertIn(
+            "install --directory --mode 0755 /etc/systemd/logind.conf.d",
+            result.stdout,
+        )
+        self.assertIn(
+            "install --mode 0644 "
+            + str(ROOT / "ansible/roles/infra_host/templates/logind-lid.conf.j2")
+            + " /etc/systemd/logind.conf.d/60-homelab-lid.conf",
+            result.stdout,
+        )
+        self.assertIn("systemctl reload systemd-logind.service", result.stdout)
+        self.assertIn("the lid can now be closed", result.stdout)
         self.assertNotIn("uv tool install", result.stdout)
         self.assertNotIn("ansible-playbook", result.stdout)
 
