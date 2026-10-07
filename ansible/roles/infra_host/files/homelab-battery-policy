@@ -23,22 +23,23 @@ def maintain_power(supply_root, poweroff):
                 continue
             start = supply / "charge_control_start_threshold"
             end = supply / "charge_control_end_threshold"
-            if start.exists() and end.exists():
-                # Clear start temporarily when changing end to avoid conflicting limits.
-                if end.read_text().strip() != "80":
-                    start.write_text("0\n")
-                    end.write_text("80\n")
-                if start.read_text().strip() != "75":
-                    start.write_text("75\n")
             capacity = int((supply / "capacity").read_text())
             status = (supply / "status").read_text().strip()
-            batteries.append((capacity, status))
+            batteries.append((capacity, status, start, end))
         except (OSError, ValueError) as error:
             print(f"Cannot read/apply power policy for {supply.name}: {error}", flush=True)
             return  # Incomplete telemetry must never trigger a shutdown.
+    for _, _, start, end in batteries:
+        if start.exists() and end.exists():
+            # Clear start temporarily when changing end to avoid conflicting limits.
+            if end.read_text().strip() != "80":
+                start.write_text("0\n")
+                end.write_text("80\n")
+            if start.read_text().strip() != "75":
+                start.write_text("75\n")
     if known_ac and not online and batteries and all(
         0 <= capacity <= 10 and status in ("Discharging", "Not charging")
-        for capacity, status in batteries
+        for capacity, status, _, _ in batteries
     ):
         print("AC absent and all batteries at or below 10%; powering off.", flush=True)
         poweroff()
