@@ -20,15 +20,20 @@ class DocumentationTests(unittest.TestCase):
             config["header_pages"],
             [
                 "bootstrap-python-flow.md",
+                "agent-config-design.html",
+                "agent-config-repository-handoff.md",
                 "runbooks/dns.md",
                 "decisions/open-decisions.md",
             ],
         )
+        self.assertIn("internal/", config["exclude"])
         self.assertIn("jekyll-relative-links", config["plugins"])
         self.assertTrue((DOCS / "index.md").is_file())
 
     def test_every_markdown_page_has_valid_front_matter(self):
         for path in DOCS.rglob("*.md"):
+            if path.is_relative_to(DOCS / "internal"):
+                continue
             with self.subTest(path=path.relative_to(ROOT)):
                 text = path.read_text()
                 self.assertTrue(text.startswith("---\n"))
@@ -70,7 +75,14 @@ class DocumentationTests(unittest.TestCase):
 
         self.assertEqual(
             ipv4_addresses,
-            {"1.1.1.1", "127.0.0.1", "127.0.1.1", "192.0.2.33"},
+            {
+                "1.1.1.1",
+                "10.42.0.0",
+                "10.43.0.0",
+                "127.0.0.1",
+                "127.0.1.1",
+                "192.0.2.33",
+            },
         )
         self.assertNotRegex(text, r"(?i)\b[0-9a-f]{2}(?::[0-9a-f]{2}){5}\b")
         email_like_values = set(
