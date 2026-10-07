@@ -1,0 +1,8 @@
+- name: Configure Cockpit on non-Raspberry Pi Linux nodes
+  hosts: non_raspberry_pi_linux
+  gather_facts: true
+  pre_tasks:
+    - name: Require a supported Cockpit operating system
+      ansible.builtin.assert:
+        that: ansible_facts['os_family'] in ['Archlinux', 'Debian']
+  roles: [firewall, cockpit]

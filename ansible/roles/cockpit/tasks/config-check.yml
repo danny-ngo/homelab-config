@@ -1,0 +1,23 @@
+- name: Restrict Cockpit to supported non-Raspberry Pi hosts
+  ansible.builtin.assert:
+    that:
+      - inventory_hostname in groups.get('non_raspberry_pi_linux', [])
+      - ansible_facts['os_family'] in ['Archlinux', 'Debian']
+      - cockpit_allowed_clients | length > 0
+    fail_msg: Configure cockpit_allowed_clients with explicit management-device Tailscale IPv4 addresses.
+
+- name: Validate individual Tailscale client addresses
+  ansible.builtin.assert:
+    that:
+      - item | ipv4_address_valid
+      - item | cidr_overlaps('100.64.0.0/10')
+    fail_msg: Cockpit clients must be individual Tailscale IPv4 addresses, without CIDR suffixes.
+  loop: "{{ cockpit_allowed_clients }}"
+
+- name: Require the server Tailscale address before opening Cockpit
+  ansible.builtin.assert:
+    that:
+      - cockpit_tailscale_address | ipv4_address_valid
+      - cockpit_tailscale_address | cidr_overlaps('100.64.0.0/10')
+    fail_msg: Enroll this node in Tailscale first, or set cockpit_tailscale_address for a fresh-host check run.
+  when: not ansible_check_mode or cockpit_tailscale_address | length > 0

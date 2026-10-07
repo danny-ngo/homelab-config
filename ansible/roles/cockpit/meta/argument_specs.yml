@@ -1,0 +1,13 @@
+argument_specs:
+  main:
+    options:
+      cockpit_allowed_clients:
+        type: list
+        elements: str
+        description: Individual Tailscale IPv4 addresses allowed to connect to Cockpit.
+      cockpit_firewalld_zone:
+        type: str
+        description: Existing firewalld zone handling Tailscale traffic.
+      cockpit_tailscale_address:
+        type: str
+        description: Server Tailscale IPv4 address, discovered from tailscale0 by default.

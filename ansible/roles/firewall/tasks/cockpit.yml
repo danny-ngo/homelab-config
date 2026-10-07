@@ -1,0 +1,29 @@
+- name: Permit Cockpit from selected Tailscale clients with firewalld
+  ansible.posix.firewalld:
+    zone: "{{ cockpit_firewalld_zone }}"
+    rich_rule: >-
+      rule family=ipv4 source address={{ item }}/32
+      destination address={{ cockpit_tailscale_address }}/32 service name=cockpit accept
+    permanent: true
+    immediate: true
+    state: enabled
+  loop: "{{ cockpit_allowed_clients }}"
+  when:
+    - ansible_facts['os_family'] == 'Archlinux'
+    - firewall_enabled | bool
+    - not ansible_check_mode or not (firewall_firewalld_package.changed | default(false))
+
+- name: Permit Cockpit from selected Tailscale clients with UFW
+  community.general.ufw:
+    rule: allow
+    direction: in
+    interface: tailscale0
+    from_ip: "{{ item }}/32"
+    to_ip: "{{ cockpit_tailscale_address }}"
+    port: '9090'
+    proto: tcp
+  loop: "{{ cockpit_allowed_clients }}"
+  when:
+    - ansible_facts['os_family'] == 'Debian'
+    - firewall_enabled | bool
+    - not ansible_check_mode or not (firewall_ufw_package.changed | default(false))

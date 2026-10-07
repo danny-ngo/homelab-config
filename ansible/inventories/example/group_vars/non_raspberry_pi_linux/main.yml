@@ -1,0 +1,2 @@
+# Replace with the management Mac's actual Tailscale IPv4 address.
+cockpit_allowed_clients: [100.64.0.10]

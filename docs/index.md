@@ -24,6 +24,7 @@ Ansible controller and manages a mixed Linux fleet with narrowly scoped roles.
 
 ## Operations runbooks
 
+- [Cockpit over Tailscale](runbooks/cockpit.md)
 - [DNS operations](runbooks/dns.md)
 - [K3s administration and recovery](runbooks/k3s-recovery.md)
 - [Raspberry Pi 1 reachability probe and service sentinel](runbooks/pi1-edge-services.md)
@@ -42,6 +43,11 @@ Ansible controller and manages a mixed Linux fleet with narrowly scoped roles.
 - [Raspberry Pi DNS and constrained edge nodes](decisions/0002-edge-node-architecture.md)
 - [Python, Ansible, and uv bootstrap ownership](decisions/0003-python-ansible-uv-bootstrap.md)
 
-## Related handoff
+## Agent configuration
+
+- [Cross-machine agent configuration design](agent-config-design.html)
+- [Agent-config repository implementation handoff](agent-config-repository-handoff.md)
+
+## Dotfiles handoff
 
 - [Make the dotfiles repository configuration-only](dotfiles-config-only-handoff.md)

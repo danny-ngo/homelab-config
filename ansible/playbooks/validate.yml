@@ -8,6 +8,15 @@
         tasks_from: validate
       loop: [common, storage, firewall]
 
+- name: Validate Cockpit on non-Raspberry Pi Linux nodes
+  hosts: non_raspberry_pi_linux
+  gather_facts: true
+  tasks:
+    - name: Run Cockpit validation
+      ansible.builtin.include_role:
+        name: cockpit
+        tasks_from: validate
+
 - name: Validate workstations
   hosts: workstations
   gather_facts: true

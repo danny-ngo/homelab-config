@@ -3,7 +3,7 @@
 Status: planning baseline
 Last reviewed: 2026-07-31
 Primary audience: implementation agents and the homelab operator
-Component detail: `.context/specs/k3s-cluster-spec.md` defines the Phase 4 K3s implementation contract beneath this plan.
+Component detail: `docs/internal/specifications/k3s-cluster-spec.md` defines the Phase 4 K3s implementation contract beneath this plan.
 
 ## 1. Mission
 
@@ -28,7 +28,7 @@ The target outcome is a reproducible fleet in which:
 
 The repository is a scaffold. `README.md`, `Makefile`, `bootstrap.sh`, Ansible configuration, and Ansible requirements are empty. The inventory, playbook, role, bootstrap, docs, scripts, and tests directories contain no implementation yet.
 
-The detailed cluster requirements live in `.context/k3s-cluster-spec.md`. That component specification establishes:
+The detailed cluster requirements live in `docs/internal/specifications/k3s-cluster-spec.md`. That component specification establishes:
 
 - group-driven K3s server/agent behavior;
 - mixed `amd64` and `arm64` K3s constraints, with ARMv7 reserved for Pi-hole
@@ -408,7 +408,7 @@ Service-level acceptance examples:
 
 ```text
 .
-├── .context/
+├── docs/internal/specifications/
 │   ├── homelab-bootstrap-spec.md
 │   └── k3s-cluster-spec.md
 ├── ansible/
@@ -478,7 +478,7 @@ bundled components, and the current no-GitOps baseline are settled. See
 
 ## 17. Instructions for Future Agents
 
-1. Read this file first, then `.context/k3s-cluster-spec.md` for the Phase 4 K3s implementation contract.
+1. Read this file first, then `docs/internal/specifications/k3s-cluster-spec.md` for the Phase 4 K3s implementation contract.
 2. Work one delivery phase at a time and do not silently select products listed as unresolved.
 3. Keep changes within this repository unless the operator explicitly authorizes changes to the dotfiles repository, router, tailnet policy, or live hosts.
 4. Preserve group-driven behavior and mixed-architecture preflight checks.

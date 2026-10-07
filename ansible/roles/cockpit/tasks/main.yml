@@ -1,0 +1,21 @@
+- name: Check Cockpit configuration
+  ansible.builtin.import_tasks: config-check.yml
+
+- name: Install Cockpit
+  ansible.builtin.package:
+    name: cockpit
+    state: present
+  register: cockpit_package_install
+
+- name: Configure direct Tailscale access through the host firewall
+  ansible.builtin.include_role:
+    name: firewall
+    tasks_from: cockpit
+  when: cockpit_tailscale_address | length > 0
+
+- name: Enable and start the Cockpit socket
+  ansible.builtin.systemd_service:
+    name: cockpit.socket
+    enabled: true
+    state: started
+  when: not ansible_check_mode or not cockpit_package_install.changed

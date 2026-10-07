@@ -1,0 +1,46 @@
+- name: Check Cockpit configuration
+  ansible.builtin.import_tasks: config-check.yml
+
+- name: Read Cockpit socket status
+  ansible.builtin.systemd_service:
+    name: cockpit.socket
+  register: cockpit_socket_status
+
+- name: Verify Cockpit starts on boot and listens now
+  ansible.builtin.assert:
+    that:
+      - cockpit_socket_status.status.UnitFileState == 'enabled'
+      - cockpit_socket_status.status.ActiveState == 'active'
+
+- name: Verify permanent and runtime firewalld Cockpit rules
+  ansible.builtin.command:
+    argv:
+      - firewall-cmd
+      - "--zone={{ cockpit_firewalld_zone }}"
+      - "{{ item.1 }}"
+      - >-
+        --query-rich-rule=rule family=ipv4 source address={{ item.0 }}/32
+        destination address={{ cockpit_tailscale_address }}/32 service name=cockpit accept
+  changed_when: false
+  loop: "{{ cockpit_allowed_clients | product(['--permanent', '--quiet']) | list }}"
+  when: ansible_facts['os_family'] == 'Archlinux' and firewall_enabled | default(true) | bool
+
+- name: Check that Debian Cockpit rules already exist without changing them
+  community.general.ufw:
+    rule: allow
+    direction: in
+    interface: tailscale0
+    from_ip: "{{ item }}/32"
+    to_ip: "{{ cockpit_tailscale_address }}"
+    port: '9090'
+    proto: tcp
+  check_mode: true
+  register: cockpit_ufw_validation
+  loop: "{{ cockpit_allowed_clients }}"
+  when: ansible_facts['os_family'] == 'Debian' and firewall_enabled | default(true) | bool
+
+- name: Verify Debian Cockpit rules are present
+  ansible.builtin.assert:
+    that: not cockpit_ufw_validation.changed
+    fail_msg: Run cockpit.yml to install the missing UFW rules.
+  when: ansible_facts['os_family'] == 'Debian' and firewall_enabled | default(true) | bool

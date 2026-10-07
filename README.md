@@ -168,6 +168,12 @@ only the packages needed before Ansible can run. Tailscale and firewall
 packages are installed by the roles that configure them; Stow belongs to the
 dotfiles flow (the Linux dotfiles role or the macOS Brewfile).
 
+Cockpit is installed and its socket enabled on `non_raspberry_pi_linux` nodes
+(Arch/CachyOS and Debian), after Tailscale enrollment in `site.yml`. The focused
+`ansible/playbooks/cockpit.yml` playbook also configures the host firewall for
+direct HTTPS access on port 9090, restricted to explicit Tailscale clients and
+the server's Tailscale IPv4 address. See [Cockpit setup and access](docs/runbooks/cockpit.md).
+
 The dotfiles role clones the configuration-only repository into the target
 user's persistent `~/Developer/dotfiles` checkout and runs `stow --restow` for
 the host group's `dotfiles_profiles`. Stow conflicts fail without modifying the

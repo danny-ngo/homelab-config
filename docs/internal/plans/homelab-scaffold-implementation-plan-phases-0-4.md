@@ -55,7 +55,6 @@ Phases 5–6—databases, pipeline orchestration, backup products, and observabi
 ```text
 .
 ├── .github/workflows/ci.yml
-├── .context/
 ├── ansible/
 │   ├── ansible.cfg
 │   ├── requirements.yml
@@ -81,6 +80,10 @@ Phases 5–6—databases, pipeline orchestration, backup products, and observabi
 │   └── profiles/{workstation,infra,execution-node,pihole,k3s-worker}.sh
 ├── docs/
 │   ├── decisions/
+│   ├── internal/
+│   │   ├── assessments/
+│   │   ├── plans/
+│   │   └── specifications/
 │   └── runbooks/
 ├── scripts/
 ├── tests/

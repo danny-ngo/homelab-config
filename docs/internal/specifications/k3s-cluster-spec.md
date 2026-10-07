@@ -2,7 +2,7 @@
 
 Status: planning baseline
 Last reviewed: 2026-07-28
-Parent plan: `.context/specs/homelab-bootstrap-spec.md`
+Parent plan: `docs/internal/specifications/homelab-bootstrap-spec.md`
 Delivery phase: Phase 4 — K3s cluster
 
 ## 1. Purpose
@@ -400,7 +400,7 @@ Design so these can be added later without implementing them in Phase 4:
 
 ## 17. Instructions for Implementation Agents
 
-1. Read `.context/homelab-bootstrap-spec.md` before this component specification.
+1. Read `docs/internal/specifications/homelab-bootstrap-spec.md` before this component specification.
 2. Do not broaden cluster membership beyond the fixed fleet table.
 3. Do not add the dedicated Pi-hole Pi 2 to any worker group.
 4. Do not add the Pi 1 or ThinkCentre nodes to any K3s group.

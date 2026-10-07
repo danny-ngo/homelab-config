@@ -6,6 +6,8 @@
   import_playbook: workstations.yml
 - name: Configure the execution node
   import_playbook: execution-node.yml
+- name: Configure Cockpit after Tailscale enrollment
+  import_playbook: cockpit.yml
 - name: Configure resilient DNS
   import_playbook: dns.yml
 - name: Configure the K3s cluster

@@ -10,6 +10,8 @@ theme: minima
 
 header_pages:
   - bootstrap-python-flow.md
+  - agent-config-design.html
+  - agent-config-repository-handoff.md
   - runbooks/dns.md
   - decisions/open-decisions.md
 
@@ -25,3 +27,7 @@ titles_from_headings:
   enabled: false
 
 strict_front_matter: true
+
+# Internal planning documents are source material, not part of the published site.
+exclude:
+  - internal/

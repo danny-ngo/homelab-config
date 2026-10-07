@@ -1,0 +1,3 @@
+cockpit_allowed_clients: []
+cockpit_firewalld_zone: public
+cockpit_tailscale_address: "{{ ansible_facts.get('tailscale0', {}).get('ipv4', {}).get('address', '') }}"
