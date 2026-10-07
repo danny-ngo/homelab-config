@@ -81,6 +81,7 @@ class DocumentationTests(unittest.TestCase):
                 "10.43.0.0",
                 "127.0.0.1",
                 "127.0.1.1",
+                "192.0.2.31",
                 "192.0.2.33",
             },
         )
