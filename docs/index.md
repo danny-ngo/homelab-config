@@ -27,6 +27,7 @@ Ansible controller and manages a mixed Linux fleet with narrowly scoped roles.
 - [Cockpit over Tailscale](runbooks/cockpit.md)
 - [DNS operations](runbooks/dns.md)
 - [K3s administration and recovery](runbooks/k3s-recovery.md)
+- [K3s worker setup](runbooks/k3s-worker-setup.md)
 - [Raspberry Pi 1 reachability probe and service sentinel](runbooks/pi1-edge-services.md)
 - [ThinkCentre workspace durability](runbooks/thinkcentre-workspaces.md)
 

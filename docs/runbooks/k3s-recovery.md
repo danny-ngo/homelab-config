@@ -7,6 +7,7 @@ title: K3s recovery
 
 The ThinkPad is the single K3s server. Its data directory and node token are
 critical state; workers are rebuildable. Restore the server before any worker.
+For first-time worker enrollment, follow [K3s worker setup](k3s-worker-setup.md).
 
 ## Helm administration
 
