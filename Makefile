@@ -24,7 +24,7 @@ syntax: ; @for playbook in ansible/playbooks/*.yml; do \
 test: ; $(UV_RUN) python -m unittest discover -s tests -v
 ci: lint syntax test
 check: ; ANSIBLE_CONFIG=ansible/ansible.cfg $(ANSIBLE) $(PLAYBOOK) --check $(if $(LIMIT),--limit $(LIMIT)) $(ANSIBLE_ARGS)
-apply: ; ANSIBLE_CONFIG=ansible/ansible.cfg $(ANSIBLE) $(PLAYBOOK) $(if $(LIMIT),--limit $(LIMIT))
+apply: ; ANSIBLE_CONFIG=ansible/ansible.cfg $(ANSIBLE) $(PLAYBOOK) $(if $(LIMIT),--limit $(LIMIT)) $(ANSIBLE_ARGS)
 validate: ; ANSIBLE_CONFIG=ansible/ansible.cfg $(ANSIBLE) ansible/playbooks/validate.yml $(if $(LIMIT),--limit $(LIMIT)) $(ANSIBLE_ARGS)
 idempotency: ; @$(MAKE) apply PLAYBOOK=$(PLAYBOOK) LIMIT="$(LIMIT)" && $(MAKE) check PLAYBOOK=$(PLAYBOOK) LIMIT="$(LIMIT)"
 phase1: ; $(MAKE) apply PLAYBOOK=ansible/playbooks/base.yml LIMIT="$(LIMIT)"
