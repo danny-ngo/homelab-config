@@ -1,0 +1,51 @@
+#!/usr/bin/env python3
+"""Maintain charge limits and shut down on exhausted battery backup."""
+from pathlib import Path
+import subprocess
+
+
+def maintain_power(supply_root, poweroff):
+    batteries = []
+    online = False
+    known_ac = False
+    for supply in supply_root.iterdir():
+        try:
+            kind = (supply / "type").read_text().strip()
+            if kind != "Battery":
+                if (supply / "online").exists():
+                    known_ac = True
+                    ac_state = (supply / "online").read_text().strip()
+                    if ac_state not in ("0", "1"):
+                        raise ValueError("invalid external-power state")
+                    online |= ac_state == "1"
+                continue
+            if (supply / "present").exists() and (supply / "present").read_text().strip() == "0":
+                continue
+            start = supply / "charge_control_start_threshold"
+            end = supply / "charge_control_end_threshold"
+            if start.exists() and end.exists():
+                # Clear start temporarily when changing end to avoid conflicting limits.
+                if end.read_text().strip() != "80":
+                    start.write_text("0\n")
+                    end.write_text("80\n")
+                if start.read_text().strip() != "75":
+                    start.write_text("75\n")
+            capacity = int((supply / "capacity").read_text())
+            status = (supply / "status").read_text().strip()
+            batteries.append((capacity, status))
+        except (OSError, ValueError) as error:
+            print(f"Cannot read/apply power policy for {supply.name}: {error}", flush=True)
+            return  # Incomplete telemetry must never trigger a shutdown.
+    if known_ac and not online and batteries and all(
+        0 <= capacity <= 10 and status in ("Discharging", "Not charging")
+        for capacity, status in batteries
+    ):
+        print("AC absent and all batteries at or below 10%; powering off.", flush=True)
+        poweroff()
+
+
+if __name__ == "__main__":
+    maintain_power(
+        Path("/sys/class/power_supply"),
+        lambda: subprocess.run(["/usr/bin/systemctl", "poweroff"], check=True),
+    )

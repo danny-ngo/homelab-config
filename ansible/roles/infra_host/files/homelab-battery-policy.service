@@ -1,0 +1,6 @@
+[Unit]
+Description=Homelab battery charge limits and low-battery shutdown
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/homelab-battery-policy

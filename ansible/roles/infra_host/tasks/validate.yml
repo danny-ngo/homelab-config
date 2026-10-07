@@ -60,3 +60,11 @@
     that:
       - ansible_facts.services['docker.service'].status == 'enabled'
       - ansible_facts.services['docker.service'].state == 'running'
+
+- name: Verify the battery policy timer is enabled
+  ansible.builtin.command: systemctl is-enabled homelab-battery-policy.timer # noqa command-instead-of-module
+  changed_when: false
+
+- name: Verify the battery policy timer is active
+  ansible.builtin.command: systemctl is-active homelab-battery-policy.timer # noqa command-instead-of-module
+  changed_when: false

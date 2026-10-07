@@ -433,7 +433,7 @@ busctl get-property org.freedesktop.login1 /org/freedesktop/login1 org.freedeskt
             <li>Investigate unexpected battery discharge while AC is reported online.</li>
             <li>Keep the lid policy explicit and retest after systemd or firmware changes.</li>
             <li>Keep air paths clear and do not operate a swollen or physically damaged battery.</li>
-            <li>Define a measured low-battery shutdown threshold and alert path before automating it.</li>
+            <li>Inspect <code>homelab-battery-policy.timer</code> and its service journal. The managed policy sets supported 75–80% charge limits and powers off without AC when every present battery is at or below 10%. Test outage runtime and maintain an independent alert path.</li>
             <li>After a real outage, inspect the previous boot with <code>journalctl -b -1</code>, filesystems, Docker, K3s, and backup freshness.</li>
           </ul>
         </section>

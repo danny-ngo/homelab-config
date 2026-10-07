@@ -185,8 +185,8 @@
         <ol>
           <li><a href="#design">Target design</a></li><li><a href="#gates">Decisions and gates</a></li>
           <li><a href="#prepare">Prepare hardware</a></li><li><a href="#install">Install Debian</a></li>
-          <li><a href="#firstboot">First boot</a></li><li><a href="#laptop">Laptop power behavior</a></li>
-          <li><a href="#bootstrap">Prepare the managed node</a></li><li><a href="#inventory">Prepare inventory</a></li>
+          <li><a href="#firstboot">First boot</a></li><li><a href="#bootstrap">Prepare the managed node</a></li>
+          <li><a href="#laptop">Laptop power behavior</a></li><li><a href="#inventory">Prepare inventory</a></li>
           <li><a href="#apply">Apply the infra profile</a></li><li><a href="#k3s">Converge K3s</a></li>
           <li><a href="#state">Protect persistent state</a></li><li><a href="#validate">Validate and hand off</a></li>
         </ol>
@@ -244,6 +244,7 @@
         <section id="install">
           <p class="section-label">04 · Debian installer</p>
           <h2>Install a minimal Debian 13 server</h2>
+          <p><strong>Run commands in this section on the ThinkPad console.</strong></p>
           <ol class="steps">
             <li><h3>Boot the installer in UEFI mode</h3><p>Select the UEFI entry for the USB. Confirm wired networking and the SSD are detected; stop if the target disk is ambiguous.</p></li>
             <li><h3>Set identity and locale</h3><p>Use hostname <code>thinkpad</code>, leave the DNS domain blank unless the production local domain already operates, and select <code>America/Toronto</code>. Leave the root password blank so Debian disables direct root login and grants the first account sudo access, then create administrator account <code>homelab</code>.</p></li>
@@ -261,7 +262,8 @@ ip -brief address
 
         <section id="firstboot">
           <p class="section-label">05 · First boot</p>
-          <h2>Patch, identify, and prove remote access</h2>
+          <h2>Patch and identify at the local console</h2>
+          <p><strong>Run commands in this section on the ThinkPad console.</strong></p>
           <pre><code>sudo apt update
 sudo apt full-upgrade
 sudo systemctl reboot</code></pre>
@@ -273,51 +275,55 @@ systemctl is-active ssh
 lsblk -o NAME,MODEL,SERIAL,SIZE,FSTYPE,FSVER,MOUNTPOINTS
 findmnt --verify
 journalctl -b -p err --no-pager</code></pre>
-          <h3>Trust the host key through the console</h3>
-          <p>Display the ED25519 host-key fingerprint at the ThinkPad console, compare it when connecting from the MacBook, and add the verified key. Do not learn a persistent infrastructure host key with blind <code>accept-new</code>.</p>
+          <p>Continue with the curl installer at the ThinkPad console as <code>homelab</code>. An initial LAN SSH session is not required. Debian’s normal sudo policy asks for the <code>homelab</code> password.</p>
+          <p>Record the host-key fingerprint here for the later controller connection:</p>
           <pre><code>sudo ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub</code></pre>
-          <p>From the MacBook, prove key authentication in a second session, then validate sudo interactively. Debian’s normal sudo policy asks for the <code>homelab</code> password.</p>
-          <pre><code>ssh homelab@THINKPAD_LAN_IP
-ssh homelab@THINKPAD_LAN_IP 'hostname; id'
-ssh -t homelab@THINKPAD_LAN_IP 'sudo -v &amp;&amp; sudo id'</code></pre>
-          <div class="callout"><strong>Keep the console session available.</strong> Do not close the only working path until a fresh SSH connection succeeds and production inventory points at the reserved address.</div>
-        </section>
-
-        <section id="laptop">
-          <p class="section-label">06 · Laptop-specific behavior</p>
-          <h2>Make the lid and battery boring</h2>
-          <p class="section-intro">A closed lid must not suspend an infrastructure server. The battery provides short ride-through, but it also needs monitoring and is not an indefinite UPS.</p>
-          <ol class="steps">
-            <li><h3>Activate it during one-line preparation</h3><p>The Linux preparation one-liner detects the ThinkPad lid switch, installs <code>/etc/systemd/logind.conf.d/60-homelab-lid.conf</code> with <code>HandleLidSwitch=ignore</code>, <code>HandleLidSwitchExternalPower=ignore</code>, and <code>HandleLidSwitchDocked=ignore</code>, then safely reloads <code>systemd-logind</code>. Wait for the message <code>Lid-close ignore policy is active; the lid can now be closed.</code> before putting the ThinkPad away. The infrastructure role owns the same file afterward and keeps the policy persistent.</p></li>
-            <li><h3>Inspect the effective policy</h3><pre><code>systemd-analyze cat-config systemd/logind.conf
-busctl get-property org.freedesktop.login1 /org/freedesktop/login1 org.freedesktop.login1.Manager HandleLidSwitch
-busctl get-property org.freedesktop.login1 /org/freedesktop/login1 org.freedesktop.login1.Manager HandleLidSwitchExternalPower
-busctl get-property org.freedesktop.login1 /org/freedesktop/login1 org.freedesktop.login1.Manager HandleLidSwitchDocked</code></pre><p>All three properties must report <code>ignore</code>. A desktop or power daemon can hold a lid inhibitor lock, but the minimal server installation deliberately has no desktop power manager.</p></li>
-            <li><h3>Validate real behavior</h3><p>Start a continuous ping from another LAN machine, close the lid on AC power for several minutes, and confirm SSH, Docker, and K3s stay reachable. Repeat after any systemd or firmware change. Keep vents unobstructed.</p></li>
-            <li><h3>Record power signals</h3><pre><code>upower -e 2&gt;/dev/null || true
-cat /sys/class/power_supply/BAT*/capacity 2&gt;/dev/null || true
-cat /sys/class/power_supply/BAT*/status 2&gt;/dev/null || true</code></pre><p>Choose and test the sustained-outage shutdown policy before an outage occurs.</p></li>
-          </ol>
-          <div class="callout warning"><strong>Remaining power gaps.</strong> Firmware tooling, SMART tooling, battery alerting, and low-battery shutdown are not currently managed by a role. Record any manual change as drift and promote it into automation before calling the setup fully reproducible.</div>
         </section>
 
         <section id="bootstrap">
-          <p class="section-label">07 · Managed-node preparation</p>
+          <p class="section-label">06 · Managed-node preparation</p>
           <h2>Prepare Linux, then return control to the MacBook</h2>
-          <p>Run the standalone installer as <code>homelab</code> on the ThinkPad. It uses a temporary source archive, installs managed-node prerequisites, global uv, the user’s pinned Python, and the detected-laptop lid safety policy. It does not retain a checkout or install Ansible.</p>
+          <p><strong>Run commands in this section on the ThinkPad console.</strong></p>
+          <p>Run the standalone installer as <code>homelab</code> on the ThinkPad. It uses a temporary source archive, installs managed-node prerequisites, global uv, the user’s pinned Python, and the detected-laptop lid and battery safety policies. It does not retain a checkout or install Ansible.</p>
           <pre><code>curl -fsSL https://raw.githubusercontent.com/danny-ngo/homelab-config/main/install.sh | bash
 
 command -v uv
 uv --version
 uv python find 3.14
 python3 --version</code></pre>
-          <p>On this ThinkPad, preparation detects the physical lid switch and activates the persistent lid-close ignore policy before it exits. Once the success message says the lid can be closed, no controller-side Ansible run or reboot is required before closing it.</p>
+          <p>On this ThinkPad, preparation detects the physical lid switch and activates the persistent lid-close ignore policy before it exits. After the installer completes successfully and reports the lid policy active, no controller-side Ansible run or reboot is required before closing it. This step prepares Python and power policies; Docker, K3s, and Tailscale are installed later by Ansible.</p>
+          <p>The URL downloads <code>main</code>; changes made in a local checkout take effect here only after they are committed and pushed to that branch.</p>
           <div class="callout"><strong>Ownership boundary.</strong> Debian’s <code>/usr/bin/python3</code> runs Ansible modules. uv-managed Python is for user workloads. Do not install Debian’s Ansible package or make the ThinkPad a second controller.</div>
+        </section>
+
+        <section id="laptop">
+          <p class="section-label">07 · Laptop-specific behavior</p>
+          <h2>Make the lid and battery boring</h2>
+          <p><strong>Run commands in this section on the ThinkPad console.</strong></p>
+          <p class="section-intro">A closed lid must not suspend an infrastructure server. The battery provides short ride-through, but it also needs monitoring and is not an indefinite UPS.</p>
+          <ol class="steps">
+            <li><h3>Activate it during one-line preparation</h3><p>The Linux preparation one-liner detects the ThinkPad lid switch, installs <code>/etc/systemd/logind.conf.d/60-homelab-lid.conf</code> with <code>HandleLidSwitch=ignore</code>, <code>HandleLidSwitchExternalPower=ignore</code>, and <code>HandleLidSwitchDocked=ignore</code>, then safely reloads <code>systemd-logind</code>. Wait for both the lid-policy activation message and successful completion of managed-node preparation before putting the ThinkPad away. The infrastructure role owns the same file afterward and keeps the policy persistent.</p></li>
+            <li><h3>Inspect the effective policy</h3><pre><code>systemd-analyze cat-config systemd/logind.conf
+busctl get-property org.freedesktop.login1 /org/freedesktop/login1 org.freedesktop.login1.Manager HandleLidSwitch
+busctl get-property org.freedesktop.login1 /org/freedesktop/login1 org.freedesktop.login1.Manager HandleLidSwitchExternalPower
+busctl get-property org.freedesktop.login1 /org/freedesktop/login1 org.freedesktop.login1.Manager HandleLidSwitchDocked</code></pre><p>All three properties must report <code>ignore</code>. A desktop or power daemon can hold a lid inhibitor lock, but the minimal server installation deliberately has no desktop power manager.</p></li>
+            <li><h3>Validate real behavior</h3><p>After Ansible convergence in section 09, start a continuous ping from another LAN machine, close the lid on AC power for several minutes, and confirm SSH, Docker, and K3s stay reachable. Repeat after any systemd or firmware change. Keep vents unobstructed.</p></li>
+            <li><h3>Battery policy applied by the same curl installer</h3><p>The installer immediately applies supported charge thresholds (start at 75%, stop at 80%) and enables <code>homelab-battery-policy.timer</code> across reboots. Every minute it reapplies thresholds when needed and requests an orderly poweroff when external power is absent and every present battery is at or below 10%, discharging or not charging. Missing or invalid telemetry prevents automatic shutdown. Unsupported charge thresholds are skipped. The infrastructure role maintains the same script and units. No TLP or desktop power manager is required.</p><pre><code>systemctl is-enabled homelab-battery-policy.timer
+systemctl list-timers homelab-battery-policy.timer
+sudo journalctl -u homelab-battery-policy.service --no-pager
+cat /sys/class/power_supply/BAT*/charge_control_*_threshold</code></pre><p>Test a short AC interruption while charge is well above 10%. Confirm battery readings and service logs, then reconnect AC. An orderly shutdown is still subject to battery health and available runtime; verify firmware recovery after AC returns. Charge thresholds do not force an already charged battery to discharge.</p><p><strong>Expected results:</strong> the timer is enabled and has a next run; each supported battery reports start <code>75</code> and end <code>80</code>. Missing threshold files indicate unsupported hardware. A <code>Cannot read/apply power policy</code> journal entry means the check did not complete and will not shut down the host on that run; investigate it. An active timer alone does not prove the limits applied. The 10% shutdown threshold is an initial policy: measure runtime with the actual battery and workload, allowing enough time for services to stop.</p><p><strong>Recovery after poweroff:</strong> reconnecting AC does not guarantee startup. With console access available, test a controlled shutdown followed by AC restoration and the firmware’s power-on behavior, then test the Pi 2 Wake-on-LAN command from the powered-off state. Record which path actually works for this model. If neither works, recovery requires pressing the power button. An encrypted installation may also require local disk unlock.</p></li>
+            <li><h3>Record power signals</h3><pre><code>upower -e 2&gt;/dev/null || true
+cat /sys/class/power_supply/BAT*/capacity 2&gt;/dev/null || true
+cat /sys/class/power_supply/BAT*/status 2&gt;/dev/null || true</code></pre><p>Record battery health and check the managed policy before an outage occurs.</p></li>
+          </ol>
+          <div class="callout warning"><strong>Remaining power gaps.</strong> Firmware tooling, SMART tooling, and off-host battery alerting are not currently managed by a role. Record any manual change as drift and promote it into automation before calling the setup fully reproducible.</div>
         </section>
 
         <section id="inventory">
           <p class="section-label">08 · Controller preparation</p>
           <h2>Describe the real host without publishing it</h2>
+          <p><strong>Run commands in this section on the MacBook.</strong></p>
+          <p>Before the first Ansible run, connect from the MacBook to <code>homelab@THINKPAD_LAN_IP</code>, compare the host key with the fingerprint recorded at the console, and install your SSH public key if needed. Prove key authentication and sudo access before enabling SSH hardening. Keep console access available until this succeeds.</p>
           <p class="section-intro">Perform these steps in the persistent MacBook checkout. Production addresses, enrollment credentials, hashes, backup endpoints, and real keys stay out of public documentation and example inventory.</p>
           <ol class="steps">
             <li><h3>Initialize and review inventory</h3><pre><code>make init-inventory
@@ -336,9 +342,10 @@ uv run --frozen ansible-inventory \
         <section id="apply">
           <p class="section-label">09 · Ansible convergence</p>
           <h2>Apply the stable infrastructure profile</h2>
+          <p><strong>Run commands in this section on the MacBook.</strong></p>
           <p>From the MacBook, inspect check mode, apply, and validate. The profile limits the site playbook to infrastructure hosts; this ThinkPad participates in baseline, infrastructure, Tailscale, dotfiles, K3s prerequisites, and K3s server plays.</p>
-          <pre><code>./bootstrap.sh --profile infra --check -- --ask-become-pass
-./bootstrap.sh --profile infra -- --ask-become-pass
+          <pre><code>./bootstrap.sh --profile infra --limit thinkpad --check -- --ask-become-pass
+./bootstrap.sh --profile infra --limit thinkpad -- --ask-become-pass
 
 ANSIBLE_CONFIG=ansible/ansible.cfg \
   "$(uv tool dir --bin)/ansible-playbook" \
@@ -355,10 +362,11 @@ ANSIBLE_CONFIG=ansible/ansible.cfg \
         <section id="k3s">
           <p class="section-label">10 · Cluster verification</p>
           <h2>Prove the server before joining workers</h2>
-          <pre><code>ssh homelab@THINKPAD_LAN_IP 'sudo systemctl --no-pager status k3s'
-ssh homelab@THINKPAD_LAN_IP 'sudo k3s kubectl get --raw=/readyz'
-ssh homelab@THINKPAD_LAN_IP 'sudo k3s kubectl get nodes -o wide'
-ssh homelab@THINKPAD_LAN_IP 'sudo ss -lntup'</code></pre>
+          <p><strong>Run commands in this section on the MacBook.</strong></p>
+          <pre><code>ssh -t homelab@THINKPAD_LAN_IP 'sudo systemctl --no-pager status k3s'
+ssh -t homelab@THINKPAD_LAN_IP 'sudo k3s kubectl get --raw=/readyz'
+ssh -t homelab@THINKPAD_LAN_IP 'sudo k3s kubectl get nodes -o wide'
+ssh -t homelab@THINKPAD_LAN_IP 'sudo ss -lntup'</code></pre>
           <ul class="checklist">
             <li>The server reports <code>Ready</code> with architecture <code>amd64</code>.</li>
             <li>The API address is the reserved LAN address, not a Tailscale address.</li>
@@ -389,10 +397,11 @@ ssh homelab@THINKPAD_LAN_IP 'sudo ss -lntup'</code></pre>
         <section id="validate">
           <p class="section-label">12 · Acceptance</p>
           <h2>Hand off only a rebuildable host</h2>
-          <pre><code>make validate LIMIT=thinkpad
-make check PLAYBOOK=ansible/playbooks/site.yml LIMIT=thinkpad
+          <p><strong>Run commands in this section on the MacBook.</strong></p>
+          <pre><code>make validate LIMIT=thinkpad ANSIBLE_ARGS=--ask-become-pass
+make check PLAYBOOK=ansible/playbooks/site.yml LIMIT=thinkpad ANSIBLE_ARGS=--ask-become-pass
 
-ssh homelab@THINKPAD_LAN_IP '
+ssh -t homelab@THINKPAD_LAN_IP '
   systemctl --failed;
   sudo systemctl is-active docker k3s tailscaled ssh;
   sudo docker info;

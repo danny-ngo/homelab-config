@@ -71,3 +71,29 @@
     name: docker
     enabled: true
     state: started
+
+- name: Install the shared battery policy
+  ansible.builtin.copy:
+    src: homelab-battery-policy
+    dest: /usr/local/sbin/homelab-battery-policy
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Install battery policy systemd units
+  ansible.builtin.copy:
+    src: "{{ item }}"
+    dest: "/etc/systemd/system/{{ item }}"
+    owner: root
+    group: root
+    mode: "0644"
+  loop:
+    - homelab-battery-policy.service
+    - homelab-battery-policy.timer
+
+- name: Activate battery checks and persist them across boots
+  ansible.builtin.systemd_service:
+    name: homelab-battery-policy.timer
+    daemon_reload: true
+    enabled: true
+    state: started

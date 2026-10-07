@@ -7,6 +7,7 @@ ANSIBLE := $(ANSIBLE_PLAYBOOK) -i ansible/inventories/production/hosts.yml
 PLAYBOOK ?= ansible/playbooks/site.yml
 LIMIT ?=
 PROFILE ?=
+ANSIBLE_ARGS ?=
 BOOTSTRAP_ARGS ?=
 
 .PHONY: bootstrap prepare deps init-inventory inventory lint syntax test ci check apply validate idempotency phase1 phase2 dns k3s k3s-reboot-test pi1-sentinel pi1-probe
@@ -22,9 +23,9 @@ syntax: ; @for playbook in ansible/playbooks/*.yml; do \
 	done
 test: ; $(UV_RUN) python -m unittest discover -s tests -v
 ci: lint syntax test
-check: ; ANSIBLE_CONFIG=ansible/ansible.cfg $(ANSIBLE) $(PLAYBOOK) --check $(if $(LIMIT),--limit $(LIMIT))
+check: ; ANSIBLE_CONFIG=ansible/ansible.cfg $(ANSIBLE) $(PLAYBOOK) --check $(if $(LIMIT),--limit $(LIMIT)) $(ANSIBLE_ARGS)
 apply: ; ANSIBLE_CONFIG=ansible/ansible.cfg $(ANSIBLE) $(PLAYBOOK) $(if $(LIMIT),--limit $(LIMIT))
-validate: ; ANSIBLE_CONFIG=ansible/ansible.cfg $(ANSIBLE) ansible/playbooks/validate.yml $(if $(LIMIT),--limit $(LIMIT))
+validate: ; ANSIBLE_CONFIG=ansible/ansible.cfg $(ANSIBLE) ansible/playbooks/validate.yml $(if $(LIMIT),--limit $(LIMIT)) $(ANSIBLE_ARGS)
 idempotency: ; @$(MAKE) apply PLAYBOOK=$(PLAYBOOK) LIMIT="$(LIMIT)" && $(MAKE) check PLAYBOOK=$(PLAYBOOK) LIMIT="$(LIMIT)"
 phase1: ; $(MAKE) apply PLAYBOOK=ansible/playbooks/base.yml LIMIT="$(LIMIT)"
 phase2: ; $(MAKE) apply PLAYBOOK=ansible/playbooks/workstations.yml LIMIT="$(LIMIT)"

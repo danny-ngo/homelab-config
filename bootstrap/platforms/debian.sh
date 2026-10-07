@@ -63,3 +63,19 @@ fi
 export PATH="/usr/local/bin:$PATH"
 bootstrap_prepare_managed_node
 bootstrap_prepare_lid_policy
+
+# Reuse the role's exact assets so console preparation and Ansible agree.
+if [[ "$BOOTSTRAP_DRY_RUN" == true ]] || bootstrap_debian_has_lid_switch; then
+  bootstrap_run sudo install --directory --mode 0755 /usr/local/sbin
+  bootstrap_run sudo install --mode 0755 \
+    "$BOOTSTRAP_ROOT/ansible/roles/infra_host/files/homelab-battery-policy" \
+    /usr/local/sbin/homelab-battery-policy
+  for unit in homelab-battery-policy.service homelab-battery-policy.timer; do
+    bootstrap_run sudo install --mode 0644 \
+      "$BOOTSTRAP_ROOT/ansible/roles/infra_host/files/$unit" "/etc/systemd/system/$unit"
+  done
+  bootstrap_run sudo systemctl daemon-reload
+  bootstrap_run sudo systemctl start homelab-battery-policy.service
+  bootstrap_run sudo systemctl enable --now homelab-battery-policy.timer
+  bootstrap_log "Battery policy active: supported charge limits 75–80%; shutdown below 10% without AC."
+fi
